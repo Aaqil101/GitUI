@@ -27,7 +27,191 @@ python __init__.py --git-push
 # Run in test mode (simulates operations without actual git commands)
 python __init__.py --git-pull --test
 python __init__.py --git-push --test
+
+# Open settings dialog
+python __init__.py --settings
 ```
+
+## Settings System
+
+GitUI features a comprehensive settings system for customizing application behavior, appearance, git operations, repository exclusions, and custom scan paths.
+
+### Accessing Settings
+
+- **From UI**: Click the "⚙ Settings" button in the left panel (below stats panel)
+- **From CLI**: Run `python __init__.py --settings`
+
+### Settings Window
+
+The settings dialog uses a side panel navigation + main content area layout (800x550px):
+
+- **Side Panel**: Category navigation (General, Git Operations, Appearance, Advanced)
+- **Main Content**: Scrollable settings for selected category
+- **Buttons**: Reset to Defaults, Cancel, Save
+
+### Settings Storage
+
+Settings are stored in JSON format in `%appdata%\GitUI\`:
+
+- **settings.json** - Main application settings
+- **exclude_repositories.json** - Username-specific repository exclusions
+- **custom_repositories.json** - Username-specific custom repository paths
+
+All managers use singleton patterns for consistent state management.
+
+### Settings Categories
+
+#### General
+**Repository Paths:**
+- GitHub repositories folder (default: `%userprofile%\Documents\GitHub`)
+- Custom repository paths (username-specific)
+  - Add additional scan locations beyond default GitHub folder
+  - Each user can have different custom paths
+  - Paths validated on addition (must exist and be accessible)
+  - Changes require restart
+
+**Repository Exclusions** (username-specific):
+- Excluded repositories list (by repository name, not path)
+- Current user display
+- Exclude confirmation timeout (1-60 seconds)
+- When excluded repo has uncommitted changes:
+  - Confirmation dialog appears with countdown timer
+  - Options: "Push Anyway", "Skip This Repo", "Cancel All"
+  - Auto-selects "Skip" if no response within timeout
+  - "Cancel All" stops all remaining push operations
+
+**Window Behavior:**
+- Always keep window on top (immediate effect)
+- Window width (600-2000px, requires restart)
+- Window height (400-1200px, requires restart)
+
+**Auto-Close Delays:**
+- After operations complete (0-10000ms, immediate effect)
+- When no repositories need updates (0-10000ms, immediate effect)
+
+#### Git Operations
+**Performance:**
+- PowerShell throttle limit (1-100 concurrent operations, requires restart)
+  - Higher = faster but more resource-intensive
+  - Default: 30
+- Scan timeout (10-600 seconds, immediate effect)
+- Operation timeout (10-600 seconds, immediate effect)
+
+**Power Options:**
+- Power countdown duration (1-60 seconds, immediate effect)
+  - Auto-selects "Shutdown" if no response (Git Push only)
+
+#### Appearance
+**Font Configuration** (all require restart):
+- Font family (must be Nerd Font for icons to display correctly)
+- Font sizes: Title, Header, Label, Stat (8-24pt)
+
+**Animations:**
+- Enable animations (requires restart)
+- Animation duration (100-1000ms, requires restart)
+
+#### Advanced
+**Startup:**
+- Test mode by default
+- Scan start delay (0-5000ms, requires restart)
+- Operations start delay (0-5000ms, requires restart)
+
+### Repository Exclusions (Username-Specific)
+
+Exclusions are stored per user in `exclude_repositories.json`.
+
+**Use Cases:**
+- Work-in-progress repositories that shouldn't be pushed
+- User-specific experiments
+- Personal projects on shared machines
+- Temporary exclusions for testing
+
+**How It Works:**
+1. Add repository name (not full path) to exclusions list in settings
+2. When Git Push scanner finds the excluded repo with uncommitted changes:
+   - Confirmation dialog appears: "Push Anyway", "Skip This Repo", "Cancel All"
+   - Countdown timer (configurable, default 10s) auto-selects "Skip" if no response
+   - "Push Anyway" proceeds with normal push operation
+   - "Skip This Repo" skips just that repository
+   - "Cancel All" stops processing all remaining repositories
+3. Excluded repos are skipped silently during Git Pull operations
+
+**User Detection:**
+Uses `getpass.getuser()` to get username, ensuring exclusions are user-specific.
+
+### Custom Repository Paths (Username-Specific)
+
+In addition to the default GitHub path, you can configure additional scan locations in `custom_repositories.json`. Custom paths are **username-specific**, allowing different paths per user on shared machines.
+
+**How It Works:**
+- Add paths via settings UI (General → Repository Paths → Custom Paths)
+- Each path validated before adding (must exist and be accessible)
+- All custom paths scanned during Git Pull and Git Push operations
+- Changes require restart to take effect
+- Each user maintains their own list of custom paths
+
+**Example Use Cases:**
+- External drives with different drive letters per machine
+- Work repositories in company-specific locations
+- Desktop quick projects folder
+- User-specific project directories
+- Shared network drives with user-specific folders
+
+**User Detection:**
+Uses `getpass.getuser()` to get username, ensuring custom paths are user-specific.
+
+### Restart Requirements
+
+**Settings marked with [⟳] require restart:**
+
+| Setting | Category | Why |
+|---------|----------|-----|
+| GitHub path | General | Loaded once at startup |
+| Custom repository paths | General | Scanner initialized at startup |
+| Window width/height | General | Set via setFixedSize() at init |
+| PowerShell throttle limit | Git Operations | Embedded in PowerShell script |
+| Font family and sizes | Appearance | Font objects created once |
+| Animation duration | Appearance | Animation objects created once |
+| Scan/operations start delays | Advanced | Timers created at startup |
+
+**Settings that take effect immediately:**
+
+| Setting | Category | How Applied |
+|---------|----------|-------------|
+| Always on top | General | Applied via setWindowFlags() |
+| Auto-close delays | General | Timer values updated |
+| Scan timeout | Git Operations | Read when worker starts |
+| Operation timeout | Git Operations | Read when worker starts |
+| Power countdown | Git Operations | Timer value updated |
+| Exclude confirmation timeout | Git Operations | Read when dialog shows |
+| Enable animations | Appearance | Checked before animations |
+
+When restart-required settings are changed, a tooltip notification appears after saving:
+> "Some settings require restart to take effect"
+
+### Adding New Settings
+
+See [docs/SETTINGS_GUIDE.md](docs/SETTINGS_GUIDE.md) for step-by-step instructions on adding new settings to the system.
+
+### Key Files
+
+**Manager Classes:**
+- [core/settings_manager.py](core/settings_manager.py) - Main settings manager (920 lines)
+- [core/exclude_manager.py](core/exclude_manager.py) - Repository exclusion manager (175 lines)
+- [core/custom_paths_manager.py](core/custom_paths_manager.py) - Custom paths manager (225 lines)
+
+**UI Components:**
+- [ui/settings_dialog.py](ui/settings_dialog.py) - Settings window with side panel navigation (870 lines)
+- [ui/settings_components.py](ui/settings_components.py) - Reusable settings widgets (463 lines)
+- [ui/settings_button.py](ui/settings_button.py) - Settings button factory (60 lines)
+- [ui/exclude_confirmation_dialog.py](ui/exclude_confirmation_dialog.py) - Exclusion confirmation dialog (272 lines)
+
+**Integration:**
+- [core/base_runner.py](core/base_runner.py) - Settings button in UI, dialog handler
+- [scanners/git_push_scanner.py](scanners/git_push_scanner.py) - Scans custom paths
+- [scanners/git_pull_scanner.py](scanners/git_pull_scanner.py) - Scans custom paths
+- [core/push_runner.py](core/push_runner.py) - Exclusion confirmation dialog integration
+- [workers/git_push_worker.py](workers/git_push_worker.py) - Extended result types for exclusions
 
 ## Development Setup
 
@@ -55,11 +239,18 @@ GitUI/
 │   ├── base_runner.py   # Abstract base class for Pull/Push runners
 │   ├── pull_runner.py   # Git Pull Runner implementation
 │   ├── push_runner.py   # Git Push Runner implementation
-│   └── config.py        # Centralized configuration (colors, fonts, timing)
+│   ├── config.py        # Centralized configuration (colors, fonts, timing)
+│   ├── settings_manager.py      # Main settings manager (singleton)
+│   ├── exclude_manager.py       # Repository exclusions manager
+│   └── custom_paths_manager.py  # Custom repository paths manager
 ├── ui/                  # UI components and styles
 │   ├── components.py    # Reusable UI component factories
 │   ├── styles.py        # PyQt6 stylesheet definitions
-│   └── power_options_panel.py  # Power options panel for Git Push
+│   ├── power_options_panel.py          # Power options panel for Git Push
+│   ├── settings_dialog.py              # Settings window with side panel navigation
+│   ├── settings_components.py          # Reusable settings widgets
+│   ├── settings_button.py              # Settings button factory
+│   └── exclude_confirmation_dialog.py  # Exclusion confirmation with countdown
 ├── utils/               # Utility modules
 │   ├── card.py          # Repository card widget with animations
 │   ├── check_internet.py     # Internet connectivity checker
@@ -67,11 +258,13 @@ GitUI/
 │   ├── icons.py         # Nerd Font icon constants
 │   └── center.py        # Window centering utility
 ├── scanners/            # Repository scanners (discovery)
-│   ├── git_pull_scanner.py   # Scans for repos behind upstream
-│   └── git_push_scanner.py   # Scans for repos with uncommitted changes
-└── workers/             # Operation workers (execution)
-    ├── git_pull_worker.py    # Executes git pull operations
-    └── git_push_worker.py    # Executes git push operations
+│   ├── git_pull_scanner.py   # Scans for repos behind upstream (+ custom paths)
+│   └── git_push_scanner.py   # Scans for repos with uncommitted changes (+ custom paths)
+├── workers/             # Operation workers (execution)
+│   ├── git_pull_worker.py    # Executes git pull operations
+│   └── git_push_worker.py    # Executes git push operations (+ exclusion handling)
+└── docs/                # Documentation
+    └── SETTINGS_GUIDE.md     # Developer guide for adding new settings
 ```
 
 ### Key Design Patterns

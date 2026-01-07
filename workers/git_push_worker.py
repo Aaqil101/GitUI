@@ -12,10 +12,11 @@ from base.base_worker import BaseOperationWorker
 class PushResult:
     """Data class for push operation result."""
 
-    status: str  # "SUCCESS", "ERROR", "MISSING"
+    status: str  # "SUCCESS", "ERROR", "MISSING", "SKIPPED", "CANCELLED"
     repo_name: str
     repo_path: str
     error_message: str = ""
+    is_excluded: bool = False  # True if repo is excluded
 
 
 class GitPushWorker(BaseOperationWorker):

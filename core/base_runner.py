@@ -67,6 +67,7 @@ from ui.components import (
     create_stat_row,
     create_text_label,
 )
+from ui.settings_button import create_settings_button
 
 # ----- Style Imports -----
 from ui.styles import (
@@ -205,6 +206,12 @@ class BaseGitRunner(InternetChecker, QWidget, metaclass=CombinedMeta):
         self.left_panel_layout.addWidget(self._create_header())
         self.left_panel_layout.addWidget(self._create_scanner_panel())
         self.left_panel_layout.addWidget(self._create_stats_panel())
+
+        # Settings button
+        self.settings_button = create_settings_button(self)
+        self.settings_button.clicked.connect(self._on_settings_clicked)
+        self.left_panel_layout.addWidget(self.settings_button)
+
         self.left_panel_layout.addStretch()
 
         left_container = QWidget()
@@ -618,6 +625,36 @@ class BaseGitRunner(InternetChecker, QWidget, metaclass=CombinedMeta):
         for delay, row, status in transitions:
             QTimer.singleShot(
                 delay, lambda r=row, s=status: self._update_card_status(r, s)
+            )
+
+    # ══════════════════════════════════════════════════════════════════
+    # SETTINGS
+    # ══════════════════════════════════════════════════════════════════
+    def _on_settings_clicked(self):
+        """Handle settings button click."""
+        from PyQt6.QtWidgets import QToolTip
+        from ui.settings_dialog import SettingsDialog
+
+        dialog = SettingsDialog(self)
+        dialog.settings_saved.connect(self._on_settings_saved)
+        dialog.exec()
+
+    def _on_settings_saved(self, restart_needed: bool):
+        """Handle settings saved event.
+
+        Args:
+            restart_needed: Whether restart is required for changes to take effect
+        """
+        if restart_needed:
+            # Show tooltip notification
+            from PyQt6.QtWidgets import QToolTip
+
+            QToolTip.showText(
+                self.mapToGlobal(self.rect().center()),
+                "Some settings require restart to take effect",
+                self,
+                self.rect(),
+                3000,  # Show for 3 seconds
             )
 
     # ══════════════════════════════════════════════════════════════════

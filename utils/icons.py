@@ -38,3 +38,17 @@ class Icons:
     RESTART: str = "\uead2"  # 
     SHUTDOWN: str = "\uf011"  # 
     CANCEL: str = "\udb81\udf3a"  # 󰜺
+    SETTINGS: str = "\uf013"  # ⚙
+    WINDOW: str = "\uf2d0"  #
+    PALETTE: str = "\uf53f"  #
+    ADVANCED: str = "\uf7d9"  #
+    EXCLUDE: str = "\uf05e"  #
+    TIMER: str = "\uf017"  #
+    PERFORMANCE: str = "\uf0e4"  #
+    FONT: str = "\uf031"  #
+    ANIMATION: str = "\uf144"  #
+    STARTUP: str = "\uf04b"  #
+    SAVE: str = "\uf0c7"  #
+    ADD: str = "\uf067"  #
+    TRASH: str = "\uf1f8"  #
+    SKIP: str = "\uf04e"  #

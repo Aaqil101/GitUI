@@ -40,12 +40,25 @@ class PowerShellScannerWorker(BaseScannerWorker):
 
     def _get_powershell_command(self) -> str:
         """Return the PowerShell command to execute."""
-        return f"""
-            $githubPath = '{self.github_path}'
+        # Get all scan paths (GitHub + custom)
+        from core.custom_paths_manager import CustomPathsManager
 
-            # Pre-filter git repos
-            $repositories = Get-ChildItem -Path $githubPath -Directory |
-                            Where-Object {{ Test-Path "$($_.FullName)\\.git" }}
+        custom_paths_mgr = CustomPathsManager()
+        all_paths = custom_paths_mgr.get_all_scan_paths()
+
+        # Build PowerShell array of paths
+        paths_array = ", ".join([f'"{p}"' for p in all_paths])
+
+        return f"""
+            $scanPaths = @({paths_array})
+
+            # Pre-filter git repos from all scan paths
+            $repositories = $scanPaths | ForEach-Object {{
+                if (Test-Path $_) {{
+                    Get-ChildItem -Path $_ -Directory -ErrorAction SilentlyContinue |
+                        Where-Object {{ Test-Path "$($_.FullName)\\.git" }}
+                }}
+            }}
 
             $total = $repositories.Count
             $completed = 0

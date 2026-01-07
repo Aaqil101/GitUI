@@ -41,6 +41,7 @@ class GitPushRunner(BaseGitRunner):
         self.power_option = None  # Stores selected power option
         self.power_options_panel = None  # Power options panel widget
         self.power_options_signals = None  # Power options signals object
+        self.is_cancelling = False  # Flag to prevent more operations when cancelling
 
     def _get_operation_config(self) -> dict:
         """Return push-specific configuration."""
@@ -230,10 +231,53 @@ class GitPushRunner(BaseGitRunner):
             self._update_card(
                 row, repo_status.name, "QUEUED", repo_status.files_changed
             )
-            self._execute_push(row, repo_status.name, repo_status.path)
+
+            # Check if operations are being cancelled
+            if not self.is_cancelling:
+                self._execute_push(row, repo_status.name, repo_status.path)
 
     def _execute_push(self, row: int, repo_name: str, repo_path: str) -> None:
         """Execute a single push operation."""
+        # Check if repository is excluded
+        from core.exclude_manager import ExcludeManager
+        from pathlib import Path
+
+        exclude_mgr = ExcludeManager()
+        repo_folder_name = Path(repo_path).name
+
+        if exclude_mgr.is_excluded(repo_folder_name):
+            # Show exclusion confirmation dialog
+            from ui.exclude_confirmation_dialog import ExcludeConfirmationDialog
+
+            dialog = ExcludeConfirmationDialog(repo_folder_name, self)
+            dialog.exec()
+            choice = dialog.get_choice()
+
+            if choice == "skip":
+                # Skip this repository
+                result = PushResult(
+                    status="SKIPPED",
+                    repo_name=repo_name,
+                    repo_path=repo_path,
+                    error_message="Skipped (excluded repository)",
+                    is_excluded=True,
+                )
+                self._on_push_finished(row, result)
+                return
+            elif choice == "cancel_all":
+                # Cancel all remaining operations
+                self._cancel_all_operations()
+                result = PushResult(
+                    status="CANCELLED",
+                    repo_name=repo_name,
+                    repo_path=repo_path,
+                    error_message="Cancelled by user",
+                    is_excluded=True,
+                )
+                self._on_push_finished(row, result)
+                return
+            # else choice == "push" - continue normally
+
         commit_prefix = self._get_commit_prefix()
         worker = GitPushWorker(repo_name, repo_path, commit_prefix=commit_prefix)
         worker.signals.finished.connect(
@@ -259,15 +303,43 @@ class GitPushRunner(BaseGitRunner):
             # Fallback (should never happen)
             return "Shutdown"
 
+    def _cancel_all_operations(self):
+        """Cancel all remaining push operations."""
+        # Set flag to prevent more operations from starting
+        self.is_cancelling = True
+
+        # Mark all pending cards as cancelled
+        for row, card in self.cards.items():
+            if card.status == "QUEUED":
+                card.set_status("CANCELLED")
+                self.completed_count += 1
+                self.failed_count += 1
+
+        self._update_operation_stats(self.success_count, self.failed_count)
+
+        # Check if we should complete
+        if self.completed_count >= self.total_count:
+            self._handle_completion()
+
     def _on_push_finished(self, row: int, result: PushResult) -> None:
         """Handle push operation completion."""
-        status = "SUCCESS" if result.status == "SUCCESS" else "FAILED"
+        # Map result status to card status
+        if result.status == "SUCCESS":
+            status = "SUCCESS"
+        elif result.status in ["SKIPPED", "CANCELLED"]:
+            status = "SKIPPED"
+        else:
+            status = "FAILED"
 
         if row in self.cards:
             self.cards[row].set_status(status)
 
+        # Update counters
         if status == "SUCCESS":
             self.success_count += 1
+        elif status == "SKIPPED":
+            # Skipped counts as neither success nor failure
+            pass
         else:
             self.failed_count += 1
 

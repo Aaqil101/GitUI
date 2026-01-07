@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import QApplication, QMessageBox
 from core.config import get_default_paths
 from core.pull_runner import GitPullRunner
 from core.push_runner import GitPushRunner
+from core.settings_manager import SettingsManager
 
 # Create the single global Qt application (must exist before any widgets)
 app = QApplication(sys.argv)
@@ -20,9 +21,19 @@ paths: dict[str, Path] = get_default_paths()
 
 def main() -> None:
     """Main entry point for GitUI application."""
+    # Initialize settings manager (loads settings from file)
+    SettingsManager()
+
     testing: bool = "--test" in sys.argv
 
-    if "--git-pull" in sys.argv:
+    if "--settings" in sys.argv:
+        # Open settings dialog directly
+        from ui.settings_dialog import SettingsDialog
+        dialog = SettingsDialog()
+        dialog.show()
+        sys.exit(app.exec())
+
+    elif "--git-pull" in sys.argv:
         window = GitPullRunner(testing=testing)
         window.show()
         sys.exit(app.exec())
@@ -33,12 +44,12 @@ def main() -> None:
         sys.exit(app.exec())
 
     else:
-        print("- Usage: python __init__.py --git-pull | --git-push")
+        print("- Usage: python __init__.py --git-pull | --git-push | --settings")
         print("- Add --test flag for test mode")
         msg = QMessageBox()
         msg.setWindowTitle("Git Helper")
         msg.setText(
-            "- Usage: python __init__.py --git-pull | --git-push\n- Add --test flag for test mode"
+            "- Usage: python __init__.py --git-pull | --git-push | --settings\n- Add --test flag for test mode"
         )
         msg.setIcon(QMessageBox.Icon.Information)
         msg.setWindowIcon(QIcon(str(paths["msg_icon"])))
