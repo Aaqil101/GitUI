@@ -33,4 +33,8 @@ class Icons:
     CLOCK: str = "\uf017"  # 
     COG: str = "\uf013"  # 
     DOWNLOAD: str = "\uf019"  # 
-    UPLOAD: str = "\uf093"  # 
+    UPLOAD: str = "\uf093"  #
+    POWER: str = "\uf011"  # 
+    RESTART: str = "\uead2"  # 
+    SHUTDOWN: str = "\uf011"  # 
+    CANCEL: str = "\udb81\udf3a"  # 󰜺

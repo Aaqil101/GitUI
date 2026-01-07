@@ -25,6 +25,19 @@ class GitPushWorker(BaseOperationWorker):
         finished = pyqtSignal(object)  # emits PushResult
         error = pyqtSignal(str)  # emits error message
 
+    def __init__(
+        self, repo_name: str, repo_path: str, commit_prefix: str = "Shutdown"
+    ) -> None:
+        """Initialize GitPushWorker with custom commit prefix.
+
+        Args:
+            repo_name: Name of repository
+            repo_path: Absolute path to repository
+            commit_prefix: Commit message prefix (e.g., "Shutdown", "Restart")
+        """
+        self.commit_prefix = commit_prefix
+        super().__init__(repo_name, repo_path)
+
     def _create_signals(self) -> QObject:
         """Create and return the Signals object for this worker."""
         return self.Signals()
@@ -35,6 +48,7 @@ class GitPushWorker(BaseOperationWorker):
             $ErrorActionPreference = "Stop"
             $repoPath = '{self.repo_path}'
             $repoName = '{self.repo_name}'
+            $commitPrefix = '{self.commit_prefix}'
 
             # Check if repository exists
             if (-not (Test-Path -LiteralPath $repoPath)) {{
@@ -99,8 +113,8 @@ class GitPushWorker(BaseOperationWorker):
                     $modifiedFiles += "- ${{changeType}}: $file"
                 }}
 
-                # Create commit message
-                $commitTitle = "Shutdown commit by $currentUser on $timestamp"
+                # Create commit message with dynamic prefix
+                $commitTitle = "$commitPrefix commit by $currentUser on $timestamp"
                 $commitBody = "Changed files:`n" + ($modifiedFiles -join "`n")
                 $commitMessage = "$commitTitle`n`n$commitBody"
 

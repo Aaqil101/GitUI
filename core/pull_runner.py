@@ -4,25 +4,26 @@ from pathlib import Path
 
 # ----- PyQt6 Modules -----
 from PyQt6.QtCore import QTimer
-from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import QMessageBox
 
 # ----- Core Imports -----
 from core.base_runner import BaseGitRunner
 from core.config import (
-    COLOR_GREEN,
-    THEME_TEXT_DIM,
-    OPERATIONS_START_DELAY,
     AUTO_CLOSE_DELAY,
     AUTO_CLOSE_NO_REPOS_DELAY,
+    COLOR_GREEN,
+    OPERATIONS_START_DELAY,
+    THEME_TEXT_DIM,
 )
+
+# ----- Scanners Imports -----
+from scanners.git_pull_scanner import PowerShellScannerWorker, ScanResult
 
 # ----- Utils Imports -----
 from utils.color import Color
 from utils.icons import Icons
 
 # ----- Workers Imports -----
-from scanners.git_pull_scanner import PowerShellScannerWorker, RepoStatus, ScanResult
 from workers.git_pull_worker import GitPullWorker, PullResult
 
 
@@ -73,9 +74,9 @@ class GitPullRunner(BaseGitRunner):
         self, repos_count: int, items_count: int, total_scanned: int
     ) -> None:
         """Update stats panel with pull-specific values."""
-        self.stat_scanned.findChild(QMessageBox, "value") or self.stat_scanned.findChildren(
-            QMessageBox
-        )
+        self.stat_scanned.findChild(
+            QMessageBox, "value"
+        ) or self.stat_scanned.findChildren(QMessageBox)
         # Find the value label by object name
         for widget in self.stat_scanned.findChildren(QMessageBox):
             if widget.objectName() == "value":

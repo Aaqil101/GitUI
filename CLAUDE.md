@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 GitUI is a PyQt6-based desktop application for managing Git repositories in bulk. It provides visual interfaces for:
 
 -   **Git Pull Runner**: Scans repositories, detects those behind upstream, and automatically pulls updates
--   **Git Push Runner**: Scans repositories for unpushed commits and pushes them to remote
+-   **Git Push Runner**: Scans repositories for uncommitted changes, prompts for power action selection via modal dialog, commits with action-specific messages, pushes to remote, and optionally executes system shutdown/restart
 
 The application features a modern Tokyo Night-themed UI with real-time progress tracking, animated components, and status cards for each repository.
 
@@ -58,7 +58,8 @@ GitUI/
 │   └── config.py        # Centralized configuration (colors, fonts, timing)
 ├── ui/                  # UI components and styles
 │   ├── components.py    # Reusable UI component factories
-│   └── styles.py        # PyQt6 stylesheet definitions
+│   ├── styles.py        # PyQt6 stylesheet definitions
+│   └── power_options_panel.py  # Power options panel for Git Push
 ├── utils/               # Utility modules
 │   ├── card.py          # Repository card widget with animations
 │   ├── check_internet.py     # Internet connectivity checker
@@ -92,6 +93,7 @@ Note: Whenever you add a new feature or make any updates, please remember to upd
 All QRunnable workers (scanners and operation workers) inherit from a 3-tier base class hierarchy in [base/base_worker.py](base/base_worker.py):
 
 **BaseWorker (abstract)**: Provides common infrastructure for all workers:
+
 -   Signal safety patterns with RuntimeError handling
 -   Graceful shutdown via `stop()` method and `_is_running` flag
 -   PowerShell subprocess execution with standard configuration
@@ -99,18 +101,21 @@ All QRunnable workers (scanners and operation workers) inherit from a 3-tier bas
 -   Abstract methods for subclasses to implement operation-specific logic
 
 **BaseScannerWorker (abstract)**: Extends BaseWorker for repository scanning operations:
+
 -   Repository counting before scanning for progress tracking
 -   JSON array parsing (handles empty results, single object → array conversion)
 -   Progress signal emission (`_safe_emit_progress`)
 -   Returns `ScanResult(repos=[], duration=X)` on errors
 
 **BaseOperationWorker (abstract)**: Extends BaseWorker for git operations on individual repos:
+
 -   Repository existence validation
 -   CREATE_NO_WINDOW flag for silent execution
 -   JSON single-object parsing
 -   Returns typed result objects (PullResult/PushResult)
 
 **Benefits of hierarchy:**
+
 -   **37% code reduction**: 342 lines eliminated across 4 worker files
 -   **DRY principle**: Common patterns (signal safety, subprocess execution, error handling) defined once
 -   **Easier maintenance**: Changes to common patterns automatically affect all workers
@@ -133,6 +138,21 @@ All UI constants (colors, fonts, sizes, timing) are centralized in [core/config.
 -   Layout dimensions
 -   Animation timings
 -   Default file paths
+-   Power options dialog configuration (width, height, countdown seconds)
+
+#### 5. Factory Function Pattern (Power Options)
+
+The Git Push Runner uses a factory function for power option selection ([ui/power_options_panel.py](ui/power_options_panel.py)):
+
+-   **create_power_options_panel()**: Factory function that returns a plain QWidget with PowerOptionsSignals
+-   Returns tuple of (widget, signals) for clean separation of UI and event handling
+-   Appears in left sidebar between stats panel and bottom stretch
+-   Emits `option_selected` signal when user clicks button or timer expires (auto-selects "Shutdown")
+-   Integrates with Tokyo Night theme using `PANEL_STYLE` applied to plain QWidget
+-   Disables buttons after selection and updates countdown label to show selected option
+-   Used to determine commit message prefix and post-push system action
+-   Window automatically resizes from 620px to 800px height and re-centers when panel appears
+-   Buttons feature modern glass morphism style with subtle transparency and colored bottom border accents
 
 ### PowerShell Integration
 
@@ -196,6 +216,94 @@ Configured in [core/config.py](core/config.py):
 #### GitHub Desktop Integration
 
 When merge conflicts are detected during pull ([core/pull_runner.py](core/pull_runner.py):236), the app attempts to open GitHub Desktop to the conflicting repository using PowerShell.
+
+## Power Options Integration (Git Push)
+
+When running Git Push (`--git-push`), the application displays a power options panel in the left sidebar after scanning completes.
+
+### Panel Behavior
+
+-   Appears automatically in the left sidebar after scan if repositories with changes are found
+-   Integrated panel (part of the main UI, between stats panel and bottom)
+-   **Window resizes** from 620px to 800px height when panel appears and automatically re-centers on screen
+-   Presents 4 buttons in a 2x2 grid with modern glass morphism styling:
+    1. **Shutdown** (Red #EF4444): Commits with "Shutdown commit by...", pushes, then shuts down system
+    2. **Restart** (Blue #3B82F6): Commits with "Restart commit by...", pushes, then restarts system
+    3. **Shutdown (Cancel)** (Amber #F59E0B): Commits with "Shutdown (Cancelled) commit by...", pushes, NO system action
+    4. **Restart (Cancel)** (Emerald #10B981): Commits with "Restart (Cancelled) commit by...", pushes, NO system action
+-   5-second countdown timer auto-selects "Shutdown" if no user interaction
+-   Countdown label shows time remaining, turns green when option selected
+-   All buttons disabled after selection
+-   Buttons feature subtle glass effect (4% white background) with colored bottom border on hover/press
+
+### Implementation Flow
+
+1. Scan completes → `_on_scan_finished()` in [core/push_runner.py](core/push_runner.py)
+2. If repos found → `_show_power_options_panel()` creates panel using factory function and resizes window
+3. Window resizes to 800px height and re-centers on screen
+4. Panel displays with countdown timer
+5. User selects option (or waits for auto-select) → Signal emitted via `PowerOptionsSignals`, stored in `self.power_option`
+6. Push operations execute with custom commit message prefix
+7. All pushes complete → `_handle_completion()` executes system action if applicable
+
+### Commit Message Format
+
+All commits use format:
+
+```
+{Prefix} commit by {username} on {timestamp}
+
+Changed files:
+- Modified: file1.txt
+- Added: file2.py
+```
+
+Where `{Prefix}` is:
+
+-   "Shutdown" (for Shutdown option)
+-   "Restart" (for Restart option)
+-   "Shutdown (Cancelled)" (for Shutdown Cancel option)
+-   "Restart (Cancelled)" (for Restart Cancel option)
+
+### System Action Execution
+
+-   Only executes if ALL push operations succeed (`self.failed_count == 0`)
+-   **Shutdown** → `os.system("shutdown /s /t 5")` (5 second delay)
+-   **Restart** → `os.system("shutdown /r /t 5")` (5 second delay)
+-   Cancel variants → No system action, just closes UI
+-   If any push fails → No system action, just closes UI after delay
+
+### Test Mode Behavior
+
+When running `python __init__.py --git-push --test`:
+
+-   Panel appears in left sidebar after 1 second
+-   After selection, card transitions animate
+-   Console prints: `[TEST MODE] Would execute power action: {option}`
+-   NO actual system action occurs
+-   UI closes after delay
+
+### Customization
+
+**Countdown timing** (in [core/config.py](core/config.py)):
+
+```python
+POWER_COUNTDOWN_SECONDS = 5  # Auto-select countdown duration
+```
+
+**Button styling** (in [ui/power_options_panel.py](ui/power_options_panel.py)):
+
+-   Glass morphism effect with `rgba(255, 255, 255, 0.04)` background
+-   Colored bottom borders on hover/press:
+    -   Shutdown: Red (#EF4444)
+    -   Restart: Blue (#3B82F6)
+    -   Shutdown (Cancel): Amber (#F59E0B)
+    -   Restart (Cancel): Emerald (#10B981)
+-   Hover state: 8% white background with warm cream text
+-   Pressed state: 40% white background with golden text
+-   6px border radius for subtle rounded corners
+
+**Panel styling**: Uses `PANEL_STYLE` from [ui/styles.py](ui/styles.py), created via factory function pattern
 
 ## Common Modifications
 

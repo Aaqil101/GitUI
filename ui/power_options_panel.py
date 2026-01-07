@@ -1,0 +1,258 @@
+# ----- PyQt6 Modules -----
+from PyQt6.QtCore import QObject, Qt, QTimer, pyqtSignal
+from PyQt6.QtGui import QCursor, QFont
+from PyQt6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
+
+# ----- Config Imports -----
+from core.config import (
+    FONT_FAMILY,
+    FONT_SIZE_STAT,
+    POWER_COUNTDOWN_SECONDS,
+    STATS_PANEL_PADDING,
+)
+
+# ----- Style Imports -----
+from ui.styles import PANEL_STYLE
+
+# ----- Utils Imports -----
+from utils.icons import Icons
+
+
+class PowerOptionsSignals(QObject):
+    """Signals for power options panel."""
+
+    # Emits: shutdown, restart, shutdown_cancel, restart_cancel
+    option_selected = pyqtSignal(str)
+
+
+def create_power_options_panel(parent=None) -> tuple[QWidget, PowerOptionsSignals]:
+    """Create the power options panel.
+
+    Args:
+        parent: Parent widget
+
+    Returns:
+        tuple: (panel_widget, signals_object)
+    """
+    # Create signals object
+    signals = PowerOptionsSignals()
+
+    # Create panel widget
+    widget = QWidget(parent)
+    widget.setStyleSheet(PANEL_STYLE)
+
+    layout = QVBoxLayout(widget)
+    layout.setSpacing(12)
+    layout.setContentsMargins(*STATS_PANEL_PADDING)
+
+    # Title
+    title = QLabel(f"{Icons.POWER}  Power Options")
+    title.setFont(QFont(FONT_FAMILY, 13, QFont.Weight.Bold))
+    title.setStyleSheet("color: white; padding: 0;")
+    layout.addWidget(title)
+
+    # Countdown label
+    countdown_label = QLabel(
+        f"Auto-selecting 'Shutdown' in {POWER_COUNTDOWN_SECONDS}s..."
+    )
+    countdown_label.setFont(QFont(FONT_FAMILY, 10))
+    countdown_label.setStyleSheet("color: #7aa2f7; padding: 0;")
+    countdown_label.setWordWrap(True)
+    layout.addWidget(countdown_label)
+
+    # Buttons layout - 2x2 grid
+    buttons_layout = QVBoxLayout()
+    buttons_layout.setSpacing(8)
+
+    # Row 1: Shutdown and Restart
+    row1 = QHBoxLayout()
+    row1.setSpacing(8)
+
+    shutdown_btn: QPushButton = _create_power_button(
+        f"{Icons.SHUTDOWN} Shutdown", "#EF4444"
+    )
+    shutdown_btn.setToolTip(
+        "Commits with 'Shutdown commit by...', pushes, then shuts down system"
+    )
+    row1.addWidget(shutdown_btn)
+
+    restart_btn: QPushButton = _create_power_button(
+        f"{Icons.RESTART} Restart", "#3B82F6"
+    )
+    restart_btn.setToolTip(
+        "Commits with 'Restart commit by...', pushes, then restarts system"
+    )
+    row1.addWidget(restart_btn)
+
+    buttons_layout.addLayout(row1)
+
+    # Row 2: Shutdown (Cancel) and Restart (Cancel)
+    row2 = QHBoxLayout()
+    row2.setSpacing(8)
+
+    shutdown_cancel_btn: QPushButton = _create_power_button(
+        f"{Icons.SHUTDOWN} {Icons.CANCEL} ST-Cancel", "#F59E0B"
+    )
+    shutdown_cancel_btn.setToolTip(
+        "Commits with 'Shutdown (Cancelled) commit by...', pushes, NO system action"
+    )
+    row2.addWidget(shutdown_cancel_btn)
+
+    restart_cancel_btn: QPushButton = _create_power_button(
+        f"{Icons.RESTART} {Icons.CANCEL} RT-Cancel", "#10B981"
+    )
+    restart_cancel_btn.setToolTip(
+        "Commits with 'Restart (Cancelled) commit by...', pushes, NO system action"
+    )
+    row2.addWidget(restart_cancel_btn)
+
+    buttons_layout.addLayout(row2)
+
+    layout.addLayout(buttons_layout)
+
+    # Store references and state in widget
+    widget.countdown_label = countdown_label
+    widget.shutdown_btn = shutdown_btn
+    widget.restart_btn = restart_btn
+    widget.shutdown_cancel_btn = shutdown_cancel_btn
+    widget.restart_cancel_btn = restart_cancel_btn
+    widget.power_option = None
+    widget.countdown_timer = None
+    widget.time_left = POWER_COUNTDOWN_SECONDS
+    widget.signals = signals
+
+    # Connect button clicks
+    shutdown_btn.clicked.connect(lambda: _on_button_clicked(widget, "shutdown"))
+    restart_btn.clicked.connect(lambda: _on_button_clicked(widget, "restart"))
+    shutdown_cancel_btn.clicked.connect(
+        lambda: _on_button_clicked(widget, "shutdown_cancel")
+    )
+    restart_cancel_btn.clicked.connect(
+        lambda: _on_button_clicked(widget, "restart_cancel")
+    )
+
+    # Add start_countdown method to widget
+    widget.start_countdown = lambda: _start_countdown(widget)
+    widget.stop_countdown = lambda: _stop_countdown(widget)
+
+    return widget, signals
+
+
+def _create_power_button(text: str, color: str) -> QPushButton:
+    """Create a modern styled power option button with subtle glass effect.
+
+    Args:
+        text: Button text
+        color: Button accent color for bottom border
+
+    Returns:
+        QPushButton: Styled button with glass morphism effect
+    """
+    button = QPushButton(text)
+    button.setFixedHeight(40)
+    button.setFont(QFont(FONT_FAMILY, FONT_SIZE_STAT))
+    button.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+
+    # Subtle glass morphism with bottom border accent
+    button.setStyleSheet(
+        f"""
+        QPushButton {{
+            background-color: rgba(255, 255, 255, 0.04);
+            color: rgba(255, 255, 255, 0.8);
+            font-weight: bold;
+            padding: 4px;
+            border: 2px solid transparent;
+            border-radius: 6px;
+        }}
+        QPushButton:hover {{
+            background-color: rgba(255, 255, 255, 0.08);
+            color: rgba(239, 232, 194, 0.9);
+            border-bottom: 2px solid {color};
+        }}
+        QPushButton:pressed {{
+            background-color: rgba(255, 255, 255, 0.40);
+            color: rgba(238, 229, 177, 0.80);
+            border-bottom: 2px solid {color};
+        }}
+        QPushButton:disabled {{
+            background-color: rgba(255, 255, 255, 0.02);
+            color: rgba(255, 255, 255, 0.3);
+            border: 2px solid transparent;
+        }}
+        """
+    )
+
+    return button
+
+
+def _start_countdown(widget: QWidget) -> None:
+    """Start the countdown timer and auto-selection."""
+    widget.time_left = POWER_COUNTDOWN_SECONDS
+    widget.countdown_timer = QTimer()
+    widget.countdown_timer.timeout.connect(lambda: _update_countdown(widget))
+    widget.countdown_timer.start(1000)
+
+    # Auto-select shutdown after countdown
+    QTimer.singleShot(
+        POWER_COUNTDOWN_SECONDS * 1000, lambda: _auto_select_shutdown(widget)
+    )
+
+
+def _update_countdown(widget: QWidget) -> None:
+    """Update countdown label every second."""
+    widget.time_left -= 1
+    if widget.time_left >= 0:
+        widget.countdown_label.setText(
+            f"Auto-selecting 'Shutdown' in {widget.time_left}s..."
+        )
+
+
+def _auto_select_shutdown(widget: QWidget) -> None:
+    """Auto-select shutdown if no option selected."""
+    if widget.power_option is None:
+        _on_button_clicked(widget, "shutdown")
+
+
+def _on_button_clicked(widget: QWidget, option: str) -> None:
+    """Handle power option button click.
+
+    Args:
+        widget: The panel widget
+        option: Selected power option (shutdown, restart, shutdown_cancel, restart_cancel)
+    """
+    if widget.power_option is not None:
+        return  # Already selected
+
+    widget.power_option = option
+
+    # Stop countdown timer
+    if widget.countdown_timer:
+        widget.countdown_timer.stop()
+
+    # Update countdown label to show selection
+    option_names: dict[str, str] = {
+        "shutdown": f"{Icons.SHUTDOWN} Shutdown",
+        "restart": f"{Icons.RESTART} Restart",
+        "shutdown_cancel": f"{Icons.SHUTDOWN} {Icons.CANCEL} Shutdown (Cancel)",
+        "restart_cancel": f"{Icons.RESTART} {Icons.CANCEL} Restart (Cancel)",
+    }
+    widget.countdown_label.setText(f"Selected: {option_names.get(option, option)}")
+    widget.countdown_label.setStyleSheet("color: #9ece6a; padding: 0;")
+
+    # Disable all buttons
+    for btn in [
+        widget.shutdown_btn,
+        widget.restart_btn,
+        widget.shutdown_cancel_btn,
+        widget.restart_cancel_btn,
+    ]:
+        btn.setEnabled(False)
+
+    # Emit signal
+    widget.signals.option_selected.emit(option)
+
+
+def _stop_countdown(widget: QWidget) -> None:
+    """Stop the countdown timer."""
+    if widget.countdown_timer:
+        widget.countdown_timer.stop()

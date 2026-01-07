@@ -118,6 +118,13 @@ AUTO_CLOSE_NO_REPOS_DELAY = 2000
 TIME_UPDATE_INTERVAL = 100
 
 # ══════════════════════════════════════════════════════════════════
+# POWER OPTIONS DIALOG CONFIGURATION
+# ══════════════════════════════════════════════════════════════════
+POWER_DIALOG_WIDTH = 500
+POWER_DIALOG_HEIGHT = 220
+POWER_COUNTDOWN_SECONDS = 5
+
+# ══════════════════════════════════════════════════════════════════
 # BUTTON CONFIGURATION
 # ══════════════════════════════════════════════════════════════════
 BUTTON_HEIGHT = 36

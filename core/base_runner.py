@@ -105,7 +105,7 @@ class BaseGitRunner(InternetChecker, QWidget, metaclass=CombinedMeta):
         self.app = QApplication.instance() or QApplication(sys.argv)
 
         # Get default paths
-        paths = get_default_paths()
+        paths: dict[str, Path] = get_default_paths()
 
         # Config
         self.script_dir: Path = paths["script_dir"]
@@ -198,17 +198,17 @@ class BaseGitRunner(InternetChecker, QWidget, metaclass=CombinedMeta):
         main_layout.setContentsMargins(*PANEL_MARGINS)
 
         # Left Panel
-        left_panel = QVBoxLayout()
-        left_panel.setSpacing(SECTION_SPACING)
-        left_panel.setContentsMargins(0, 0, 0, 0)
+        self.left_panel_layout = QVBoxLayout()
+        self.left_panel_layout.setSpacing(SECTION_SPACING)
+        self.left_panel_layout.setContentsMargins(0, 0, 0, 0)
 
-        left_panel.addWidget(self._create_header())
-        left_panel.addWidget(self._create_scanner_panel())
-        left_panel.addWidget(self._create_stats_panel())
-        left_panel.addStretch()
+        self.left_panel_layout.addWidget(self._create_header())
+        self.left_panel_layout.addWidget(self._create_scanner_panel())
+        self.left_panel_layout.addWidget(self._create_stats_panel())
+        self.left_panel_layout.addStretch()
 
         left_container = QWidget()
-        left_container.setLayout(left_panel)
+        left_container.setLayout(self.left_panel_layout)
         left_container.setFixedWidth(LEFT_PANEL_WIDTH)
 
         # Right Panel

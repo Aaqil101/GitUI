@@ -1,19 +1,23 @@
 # ----- Built-In Modules -----
+import os
 from pathlib import Path
 
 # ----- PyQt6 Modules -----
 from PyQt6.QtCore import QTimer
-from PyQt6.QtWidgets import QLabel
+from PyQt6.QtWidgets import QLabel, QWidget
 
 # ----- Core Imports -----
 from core.base_runner import BaseGitRunner
 from core.config import (
     COLOR_GREEN,
-    THEME_TEXT_DIM,
     OPERATIONS_START_DELAY,
     AUTO_CLOSE_DELAY,
     AUTO_CLOSE_NO_REPOS_DELAY,
+    THEME_TEXT_DIM,
 )
+
+# ----- UI Imports -----
+from ui.power_options_panel import create_power_options_panel
 
 # ----- Utils Imports -----
 from utils.color import Color
@@ -26,6 +30,17 @@ from workers.git_push_worker import GitPushWorker, PushResult
 
 class GitPushRunner(BaseGitRunner):
     """Git Push Runner - handles pushing commits to repositories."""
+
+    def __init__(self, testing: bool = False) -> None:
+        """Initialize the Git Push Runner.
+
+        Args:
+            testing: If True, run in test mode without actual git operations
+        """
+        super().__init__(testing)
+        self.power_option = None  # Stores selected power option
+        self.power_options_panel = None  # Power options panel widget
+        self.power_options_signals = None  # Power options signals object
 
     def _get_operation_config(self) -> dict:
         """Return push-specific configuration."""
@@ -151,9 +166,44 @@ class GitPushRunner(BaseGitRunner):
             self._update_card(row, repo.name, "PENDING", repo.files_changed)
 
         if result.repos:
-            QTimer.singleShot(OPERATIONS_START_DELAY, self._run_operations)
+            self._show_power_options_panel()
         else:
             QTimer.singleShot(AUTO_CLOSE_NO_REPOS_DELAY, self.close)
+
+    def _show_power_options_panel(self) -> None:
+        """Show the power options panel in the left sidebar."""
+        if self.power_options_panel is None and self.left_panel_layout:
+            self.power_options_panel, self.power_options_signals = create_power_options_panel(self)
+            self.power_options_signals.option_selected.connect(self._on_power_option_selected)
+
+            # Insert panel before the last item (stretch)
+            self.left_panel_layout.insertWidget(
+                self.left_panel_layout.count() - 1, self.power_options_panel
+            )
+
+        if self.power_options_panel:
+            # Resize window to 800 height to accommodate power options panel
+            self.setFixedSize(self.width(), 800)
+            # Re-center window after resize
+            from utils.center import position_center
+            position_center(self)
+
+            self.power_options_panel.setVisible(True)
+            self.power_options_panel.start_countdown()
+
+    def _on_power_option_selected(self, option: str) -> None:
+        """Handle power option selection.
+
+        Args:
+            option: Selected power option (shutdown, restart, shutdown_cancel, restart_cancel)
+        """
+        self.power_option = option
+
+        # Start operations
+        if self.testing:
+            QTimer.singleShot(OPERATIONS_START_DELAY, self._simulate_transitions)
+        else:
+            QTimer.singleShot(OPERATIONS_START_DELAY, self._run_operations)
 
     # ══════════════════════════════════════════════════════════════════
     # PUSH OPERATIONS
@@ -184,11 +234,30 @@ class GitPushRunner(BaseGitRunner):
 
     def _execute_push(self, row: int, repo_name: str, repo_path: str) -> None:
         """Execute a single push operation."""
-        worker = GitPushWorker(repo_name, repo_path)
+        commit_prefix = self._get_commit_prefix()
+        worker = GitPushWorker(repo_name, repo_path, commit_prefix=commit_prefix)
         worker.signals.finished.connect(
             lambda result: self._on_push_finished(row, result)
         )
         self.threadpool.start(worker)
+
+    def _get_commit_prefix(self) -> str:
+        """Get commit message prefix based on selected power option.
+
+        Returns:
+            str: Commit message prefix (e.g., "Shutdown", "Restart")
+        """
+        if self.power_option == "shutdown":
+            return "Shutdown"
+        elif self.power_option == "restart":
+            return "Restart"
+        elif self.power_option == "shutdown_cancel":
+            return "Shutdown (Cancelled)"
+        elif self.power_option == "restart_cancel":
+            return "Restart (Cancelled)"
+        else:
+            # Fallback (should never happen)
+            return "Shutdown"
 
     def _on_push_finished(self, row: int, result: PushResult) -> None:
         """Handle push operation completion."""
@@ -206,6 +275,25 @@ class GitPushRunner(BaseGitRunner):
         self._update_operation_stats(self.success_count, self.failed_count)
 
         if self.completed_count >= self.total_count:
+            self._handle_completion()
+
+    def _handle_completion(self) -> None:
+        """Handle completion of all push operations and execute power action."""
+        # Check if failed_count exists (it won't in test mode)
+        all_successful = getattr(self, 'failed_count', 0) == 0
+
+        if self.testing:
+            # Test mode - just show what would happen
+            print(f"[TEST MODE] Would execute power action: {self.power_option}")
+            QTimer.singleShot(AUTO_CLOSE_DELAY, self.close)
+        elif all_successful and self.power_option in ["shutdown", "restart"]:
+            self.close()
+
+            if self.power_option == "shutdown":
+                os.system("shutdown /s /t 5")
+            elif self.power_option == "restart":
+                os.system("shutdown /r /t 5")
+        else:
             QTimer.singleShot(AUTO_CLOSE_DELAY, self.close)
 
     # ══════════════════════════════════════════════════════════════════
@@ -238,4 +326,13 @@ class GitPushRunner(BaseGitRunner):
         for row, (name, behind, status) in enumerate(test_repos):
             self._update_card(row, name, status, behind)
 
-        self._simulate_transitions()
+        # Show power options panel in test mode too
+        QTimer.singleShot(1000, self._show_power_options_panel)
+
+    def _simulate_transitions(self) -> None:
+        """Simulate status transitions for test mode."""
+        # Call parent implementation for card transitions
+        super()._simulate_transitions()
+
+        # Simulate power action after transitions complete (test mode only)
+        QTimer.singleShot(2000, self._handle_completion)

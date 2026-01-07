@@ -10,6 +10,7 @@ from ui.components import (
     create_stat_row,
     create_text_label,
 )
+from ui.power_options_panel import create_power_options_panel, PowerOptionsSignals
 from ui.styles import (
     CARD_CONTAINER_STYLE,
     HEADER_PANEL_STYLE,
@@ -33,6 +34,9 @@ __all__ = [
     "create_progress_bar",
     "create_stat_row",
     "create_text_label",
+    # Panels
+    "create_power_options_panel",
+    "PowerOptionsSignals",
     # Styles
     "CARD_CONTAINER_STYLE",
     "HEADER_PANEL_STYLE",
