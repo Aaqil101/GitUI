@@ -1,19 +1,18 @@
-# ----- PyQt6 Modules -----
+# ----- Built-In Modules-----
 from pathlib import Path
 
-from PyQt6.QtCore import QEasingCurve, QPropertyAnimation, QSize, Qt, pyqtSignal
+# ----- PyQt6 Modules -----
+from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QCursor, QFont, QIcon
 from PyQt6.QtWidgets import (
     QDialog,
     QFileDialog,
     QHBoxLayout,
     QLabel,
-    QListWidget,
-    QListWidgetItem,
     QMessageBox,
     QPushButton,
     QScrollArea,
-    QStackedWidget,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -22,11 +21,7 @@ from PyQt6.QtWidgets import (
 from core.config import (
     COLOR_ORANGE,
     FONT_FAMILY,
-    FONT_SIZE_HEADER,
     FONT_SIZE_STAT,
-    SETTINGS_SIDE_PANEL_ANIMATION_DURATION,
-    SETTINGS_SIDE_PANEL_WIDTH_COLLAPSED,
-    SETTINGS_SIDE_PANEL_WIDTH_EXPANDED,
     THEME_BG_PRIMARY,
     THEME_BG_SECONDARY,
     THEME_TEXT_PRIMARY,
@@ -210,7 +205,7 @@ class SettingsDialog(QDialog):
     def _init_ui(self) -> None:
         """Initialize the user interface."""
         self.setWindowTitle("Settings")
-        self.setFixedSize(800, 550)
+        self.setFixedSize(900, 600)
         self.setWindowFlags(Qt.WindowType.Dialog | Qt.WindowType.WindowStaysOnTopHint)
         self.setModal(True)
 
@@ -219,7 +214,7 @@ class SettingsDialog(QDialog):
         self.setWindowIcon(QIcon(str(paths["app_icon"])))
 
         # Main layout
-        main_layout = QHBoxLayout(self)
+        main_layout = QVBoxLayout(self)
         main_layout.setSpacing(0)
         main_layout.setContentsMargins(0, 0, 0, 0)
 
@@ -232,195 +227,67 @@ class SettingsDialog(QDialog):
             """
         )
 
-        # Side panel
-        self.side_panel = self._create_side_panel()
-        main_layout.addWidget(self.side_panel)
+        # Tab widget
+        self.tab_widget = self._create_tab_widget()
+        main_layout.addWidget(self.tab_widget, 1)
 
-        # Content area
-        self.content_area = self._create_content_area()
-        main_layout.addWidget(self.content_area, 1)
+        # Bottom button bar
+        button_bar = self._create_button_bar()
+        main_layout.addWidget(button_bar)
 
         # Center dialog on screen
         position_center(self)
 
-    def _create_side_panel(self) -> QWidget:
-        """Create the side panel navigation.
+    def _create_tab_widget(self) -> QTabWidget:
+        """Create the tab widget with settings pages.
 
         Returns:
-            QWidget: Side panel widget
+            QTabWidget: Tab widget with all settings pages
         """
-        panel = QWidget()
-        panel.setFixedWidth(SETTINGS_SIDE_PANEL_WIDTH_EXPANDED)
-        panel.setStyleSheet(
+        tab_widget = QTabWidget()
+        tab_widget.setFont(QFont(FONT_FAMILY, FONT_SIZE_STAT))
+
+        # Modern tab bar styling
+        tab_widget.setStyleSheet(
             f"""
-            QWidget {{
+            QTabWidget::pane {{
+                background-color: {THEME_BG_PRIMARY};
+            }}
+
+            QTabBar::tab {{
                 background-color: {THEME_BG_SECONDARY};
-            }}
-            """
-        )
-
-        layout = QVBoxLayout(panel)
-        layout.setSpacing(0)
-        layout.setContentsMargins(0, 0, 0, 0)
-
-        # Header with toggle button
-        header_container = QWidget()
-        header_container.setStyleSheet(
-            f"""
-            QWidget {{
-                background-color: rgba(122, 162, 247, 0.1);
-                border-bottom: 1px solid rgba(122, 162, 247, 0.3);
-            }}
-            """
-        )
-        header_layout = QHBoxLayout(header_container)
-        header_layout.setContentsMargins(16, 16, 16, 16)
-        header_layout.setSpacing(8)
-
-        # Header label
-        self.header_label = QLabel(f"{Icons.SETTINGS}  Settings")
-        self.header_label.setFont(
-            QFont(FONT_FAMILY, FONT_SIZE_HEADER, QFont.Weight.Bold)
-        )
-        self.header_label.setStyleSheet(f"color: {THEME_TEXT_PRIMARY};")
-        header_layout.addWidget(self.header_label)
-
-        header_layout.addStretch()
-
-        # Toggle button
-        self.toggle_btn = QPushButton(Icons.CHEVRON_LEFT)
-        self.toggle_btn.setFont(QFont(FONT_FAMILY, 14))
-        self.toggle_btn.setFixedSize(32, 32)
-        self.toggle_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        self.toggle_btn.setStyleSheet(
-            f"""
-            QPushButton {{
-                background-color: transparent;
-                color: {THEME_TEXT_PRIMARY};
-                border: 1px solid rgba(255, 255, 255, 0.1);
-                border-radius: 6px;
-                padding: 4px;
-            }}
-            QPushButton:hover {{
-                background-color: rgba(122, 162, 247, 0.2);
-                border: 1px solid rgba(122, 162, 247, 0.5);
-            }}
-            QPushButton:pressed {{
-                background-color: rgba(122, 162, 247, 0.3);
-            }}
-            """
-        )
-        self.toggle_btn.clicked.connect(self._toggle_panel)
-        header_layout.addWidget(self.toggle_btn)
-
-        layout.addWidget(header_container)
-
-        # Navigation list
-        self.nav_list = QListWidget()
-        self.nav_list.setFont(QFont(FONT_FAMILY, FONT_SIZE_STAT))
-        self.nav_list.setStyleSheet(
-            f"""
-            QListWidget {{
-                background-color: transparent;
-                border: none;
-                outline: none;
-            }}
-            QListWidget::item {{
                 color: {THEME_TEXT_SECONDARY};
-                padding: 14px 16px;
-                border-left: 3px solid transparent;
+                padding: 12px 24px;
+                margin-right: 2px;
+                font-weight: normal;
             }}
-            QListWidget::item:selected {{
+
+            QTabBar::tab:hover {{
+                background-color: rgba(122, 162, 247, 0.1);
+                color: {THEME_TEXT_PRIMARY};
+            }}
+
+            QTabBar::tab:selected {{
                 background-color: rgba(122, 162, 247, 0.2);
                 color: {THEME_TEXT_PRIMARY};
-                border-left: 3px solid #7aa2f7;
-            }}
-            QListWidget::item:hover {{
-                background-color: rgba(255, 255, 255, 0.04);
+                font-weight: bold;
             }}
             """
         )
 
-        # Navigation items with icon/text data
-        self.nav_items_data: list[tuple[str, str]] = [
-            (Icons.FOLDER, "General"),
-            (Icons.GIT, "Git Operations"),
-            (Icons.PALETTE, "Appearance"),
-            (Icons.ADVANCED, "Advanced"),
-        ]
+        # Add tabs with icons
+        tab_widget.addTab(self._create_general_page(), f"{Icons.FOLDER}  General")
+        tab_widget.addTab(self._create_git_ops_page(), f"{Icons.GIT}  Git Operations")
+        tab_widget.addTab(
+            self._create_appearance_page(), f"{Icons.PALETTE}  Appearance"
+        )
+        tab_widget.addTab(self._create_advanced_page(), f"{Icons.ADVANCED}  Advanced")
+        tab_widget.addTab(
+            self._create_appearance_page(), f"{Icons.PALETTE}  Appearance"
+        )
+        tab_widget.addTab(self._create_advanced_page(), f"{Icons.ADVANCED}  Advanced")
 
-        # Store custom widgets for each item
-        self.nav_item_widgets: list[QWidget] = []
-
-        for icon, text in self.nav_items_data:
-            # Create item
-            item = QListWidgetItem()
-            item.setSizeHint(QSize(0, 50))  # Set height for custom widget
-            self.nav_list.addItem(item)
-
-            # Create custom widget with separate icon and text labels
-            widget = QWidget()
-            widget_layout = QHBoxLayout(widget)
-            widget_layout.setContentsMargins(8, 0, 8, 0)
-            widget_layout.setSpacing(12)
-
-            # Icon label with larger font
-            icon_label = QLabel(icon)
-            icon_label.setFont(QFont(FONT_FAMILY, 16))
-            icon_label.setStyleSheet(f"color: {THEME_TEXT_SECONDARY};")
-            widget_layout.addWidget(icon_label)
-
-            # Text label with normal font
-            text_label = QLabel(text)
-            text_label.setFont(QFont(FONT_FAMILY, FONT_SIZE_STAT))
-            text_label.setStyleSheet(f"color: {THEME_TEXT_SECONDARY};")
-            widget_layout.addWidget(text_label)
-            widget_layout.addStretch()
-
-            # Store references
-            widget.setProperty("icon_label", icon_label)
-            widget.setProperty("text_label", text_label)
-            widget.setProperty("icon", icon)
-            widget.setProperty("text", text)
-
-            self.nav_item_widgets.append(widget)
-            self.nav_list.setItemWidget(item, widget)
-
-        self.nav_list.setCurrentRow(0)
-        self.nav_list.currentRowChanged.connect(self._on_nav_item_clicked)
-        self.nav_list.currentRowChanged.connect(self._update_nav_colors)
-        layout.addWidget(self.nav_list)
-
-        # Set initial colors
-        self._update_nav_colors(0)
-
-        return panel
-
-    def _create_content_area(self) -> QWidget:
-        """Create the main content area with stacked pages.
-
-        Returns:
-            QWidget: Content area widget
-        """
-        container = QWidget()
-        layout = QVBoxLayout(container)
-        layout.setSpacing(0)
-        layout.setContentsMargins(0, 0, 0, 0)
-
-        # Stacked widget for pages
-        self.stacked_widget = QStackedWidget()
-        self.stacked_widget.addWidget(self._create_general_page())
-        self.stacked_widget.addWidget(self._create_git_ops_page())
-        self.stacked_widget.addWidget(self._create_appearance_page())
-        self.stacked_widget.addWidget(self._create_advanced_page())
-
-        layout.addWidget(self.stacked_widget, 1)
-
-        # Bottom button bar
-        button_bar = self._create_button_bar()
-        layout.addWidget(button_bar)
-
-        return container
+        return tab_widget
 
     def _create_general_page(self) -> QWidget:
         """Create the General settings page.
@@ -921,86 +788,6 @@ class SettingsDialog(QDialog):
         layout.addWidget(save_btn)
 
         return bar
-
-    def _on_nav_item_clicked(self, index: int) -> None:
-        """Handle navigation item selection.
-
-        Args:
-            index: Selected navigation item index
-        """
-        self.stacked_widget.setCurrentIndex(index)
-
-    def _update_nav_colors(self, index: int) -> None:
-        """Update navigation item colors based on selection.
-
-        Args:
-            index: Currently selected item index
-        """
-        for i, widget in enumerate(self.nav_item_widgets):
-            icon_label = widget.property("icon_label")
-            text_label = widget.property("text_label")
-
-            if i == index:
-                # Selected - primary color
-                icon_label.setStyleSheet(f"color: {THEME_TEXT_PRIMARY};")
-                text_label.setStyleSheet(f"color: {THEME_TEXT_PRIMARY};")
-            else:
-                # Not selected - secondary color
-                icon_label.setStyleSheet(f"color: {THEME_TEXT_SECONDARY};")
-                text_label.setStyleSheet(f"color: {THEME_TEXT_SECONDARY};")
-
-    def _toggle_panel(self) -> None:
-        """Toggle the side panel between collapsed and expanded states."""
-        # Toggle state
-        self.is_collapsed: bool = not self.is_collapsed
-
-        # Determine target width
-        target_width = (
-            SETTINGS_SIDE_PANEL_WIDTH_COLLAPSED
-            if self.is_collapsed
-            else SETTINGS_SIDE_PANEL_WIDTH_EXPANDED
-        )
-
-        # Update toggle button icon
-        self.toggle_btn.setText(
-            Icons.CHEVRON_RIGHT if self.is_collapsed else Icons.CHEVRON_LEFT
-        )
-
-        # Show/hide header text
-        if self.is_collapsed:
-            self.header_label.setText(Icons.SETTINGS)
-        else:
-            self.header_label.setText(f"{Icons.SETTINGS}  Settings")
-
-        # Show/hide navigation text labels in custom widgets
-        for i, widget in enumerate(self.nav_item_widgets):
-            text_label = widget.property("text_label")
-            text = widget.property("text")
-
-            if self.is_collapsed:
-                # Hide text, show tooltip
-                text_label.setVisible(False)
-                self.nav_list.item(i).setToolTip(text)
-            else:
-                # Show text, clear tooltip
-                text_label.setVisible(True)
-                self.nav_list.item(i).setToolTip("")
-
-        # Animate width change
-        self.panel_animation = QPropertyAnimation(self.side_panel, b"minimumWidth")
-        self.panel_animation.setDuration(SETTINGS_SIDE_PANEL_ANIMATION_DURATION)
-        self.panel_animation.setStartValue(self.side_panel.width())
-        self.panel_animation.setEndValue(target_width)
-        self.panel_animation.setEasingCurve(QEasingCurve.Type.InOutQuad)
-        self.panel_animation.start()
-
-        # Also animate maximum width to match
-        self.panel_animation_max = QPropertyAnimation(self.side_panel, b"maximumWidth")
-        self.panel_animation_max.setDuration(SETTINGS_SIDE_PANEL_ANIMATION_DURATION)
-        self.panel_animation_max.setStartValue(self.side_panel.width())
-        self.panel_animation_max.setEndValue(target_width)
-        self.panel_animation_max.setEasingCurve(QEasingCurve.Type.InOutQuad)
-        self.panel_animation_max.start()
 
     def _on_add_custom_path(self, list_widget) -> None:
         """Handle adding a custom repository path.
