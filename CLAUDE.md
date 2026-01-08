@@ -38,14 +38,24 @@ GitUI features a comprehensive settings system for customizing application behav
 
 ### Accessing Settings
 
-- **From UI**: Click the "⚙ Settings" button in the left panel (below stats panel)
-- **From CLI**: Run `python __init__.py --settings`
+Settings can **only** be accessed via the CLI flag:
+
+```bash
+python __init__.py --settings
+```
+
+**Design Decision**: Settings are intentionally not accessible from the UI during Git Pull/Push operations to maintain a clean, focused interface and prevent accidental configuration changes during active operations.
 
 ### Settings Window
 
 The settings dialog uses a side panel navigation + main content area layout (800x550px):
 
 - **Side Panel**: Category navigation (General, Git Operations, Appearance, Advanced)
+  - **Collapsible**: Click the chevron button to collapse/expand the panel
+  - **Expanded state**: 220px wide with full category names and icons
+  - **Collapsed state**: 60px wide with icons only (text shown as tooltips on hover)
+  - **Smooth animation**: 300ms transition using InOutQuad easing
+  - **Larger icons**: 16pt font size for icons, 10pt for text (uses custom widgets with separate icon/text labels)
 - **Main Content**: Scrollable settings for selected category
 - **Buttons**: Reset to Defaults, Cancel, Save
 
@@ -54,6 +64,7 @@ The settings dialog uses a side panel navigation + main content area layout (800
 Settings are stored in JSON format in `%appdata%\GitUI\`:
 
 - **settings.json** - Main application settings
+- **github_paths.json** - Username-specific GitHub repository paths
 - **exclude_repositories.json** - Username-specific repository exclusions
 - **custom_repositories.json** - Username-specific custom repository paths
 
@@ -63,7 +74,11 @@ All managers use singleton patterns for consistent state management.
 
 #### General
 **Repository Paths:**
-- GitHub repositories folder (default: `%userprofile%\Documents\GitHub`)
+- GitHub repositories folder (username-specific, default: `%userprofile%\Documents\GitHub`)
+  - Each user can have their own GitHub folder path
+  - Paths validated on save (must exist and be accessible)
+  - Changes require restart
+  - Current user displayed in settings
 - Custom repository paths (username-specific)
   - Add additional scan locations beyond default GitHub folder
   - Each user can have different custom paths
@@ -139,9 +154,29 @@ Exclusions are stored per user in `exclude_repositories.json`.
 **User Detection:**
 Uses `getpass.getuser()` to get username, ensuring exclusions are user-specific.
 
+### GitHub Repository Path (Username-Specific)
+
+The GitHub repository folder path is stored per user in `github_paths.json`. This allows different users on the same machine to have different GitHub folder locations.
+
+**Use Cases:**
+- Different users with different GitHub folder locations
+- Shared machines with user-specific Documents folders
+- Testing with different repository sets per user
+- Development vs. production environments on same machine
+
+**How It Works:**
+- Set path via settings UI (General → Repository Paths → GitHub Repositories Folder)
+- Path validated before saving (must exist and be accessible)
+- Changes require restart to take effect
+- Each user maintains their own GitHub path
+- Default: `%userprofile%\Documents\GitHub`
+
+**User Detection:**
+Uses `getpass.getuser()` to get username, ensuring GitHub paths are user-specific.
+
 ### Custom Repository Paths (Username-Specific)
 
-In addition to the default GitHub path, you can configure additional scan locations in `custom_repositories.json`. Custom paths are **username-specific**, allowing different paths per user on shared machines.
+In addition to the username-specific GitHub path, you can configure additional scan locations in `custom_repositories.json`. Custom paths are **username-specific**, allowing different paths per user on shared machines.
 
 **How It Works:**
 - Add paths via settings UI (General → Repository Paths → Custom Paths)
@@ -196,18 +231,19 @@ See [docs/SETTINGS_GUIDE.md](docs/SETTINGS_GUIDE.md) for step-by-step instructio
 ### Key Files
 
 **Manager Classes:**
-- [core/settings_manager.py](core/settings_manager.py) - Main settings manager (920 lines)
-- [core/exclude_manager.py](core/exclude_manager.py) - Repository exclusion manager (175 lines)
-- [core/custom_paths_manager.py](core/custom_paths_manager.py) - Custom paths manager (225 lines)
+- [core/settings_manager.py](core/settings_manager.py) - Main settings manager (~145 lines)
+- [core/github_path_manager.py](core/github_path_manager.py) - GitHub path manager (~180 lines)
+- [core/exclude_manager.py](core/exclude_manager.py) - Repository exclusion manager (~175 lines)
+- [core/custom_paths_manager.py](core/custom_paths_manager.py) - Custom paths manager (~225 lines)
 
 **UI Components:**
-- [ui/settings_dialog.py](ui/settings_dialog.py) - Settings window with side panel navigation (870 lines)
-- [ui/settings_components.py](ui/settings_components.py) - Reusable settings widgets (463 lines)
-- [ui/settings_button.py](ui/settings_button.py) - Settings button factory (60 lines)
-- [ui/exclude_confirmation_dialog.py](ui/exclude_confirmation_dialog.py) - Exclusion confirmation dialog (272 lines)
+- [ui/settings_dialog.py](ui/settings_dialog.py) - Settings window with side panel navigation (~890 lines)
+- [ui/settings_components.py](ui/settings_components.py) - Reusable settings widgets (~463 lines)
+- [ui/exclude_confirmation_dialog.py](ui/exclude_confirmation_dialog.py) - Exclusion confirmation dialog (~272 lines)
 
 **Integration:**
-- [core/base_runner.py](core/base_runner.py) - Settings button in UI, dialog handler
+- [__init__.py](__init__.py) - CLI entry point for settings dialog (--settings flag)
+- [core/config.py](core/config.py) - Uses GitHubPathManager for get_default_paths()
 - [scanners/git_push_scanner.py](scanners/git_push_scanner.py) - Scans custom paths
 - [scanners/git_pull_scanner.py](scanners/git_pull_scanner.py) - Scans custom paths
 - [core/push_runner.py](core/push_runner.py) - Exclusion confirmation dialog integration
@@ -249,7 +285,6 @@ GitUI/
 │   ├── power_options_panel.py          # Power options panel for Git Push
 │   ├── settings_dialog.py              # Settings window with side panel navigation
 │   ├── settings_components.py          # Reusable settings widgets
-│   ├── settings_button.py              # Settings button factory
 │   └── exclude_confirmation_dialog.py  # Exclusion confirmation with countdown
 ├── utils/               # Utility modules
 │   ├── card.py          # Repository card widget with animations
@@ -345,7 +380,7 @@ The Git Push Runner uses a factory function for power option selection ([ui/powe
 -   Disables buttons after selection and updates countdown label to show selected option
 -   Used to determine commit message prefix and post-push system action
 -   Window automatically resizes from 620px to 800px height and re-centers when panel appears
--   Buttons feature modern glass morphism style with subtle transparency and colored bottom border accents
+-   Buttons feature clean, modern style with transparent background and hover effects (matching settings button)
 
 ### PowerShell Integration
 
@@ -486,15 +521,17 @@ POWER_COUNTDOWN_SECONDS = 5  # Auto-select countdown duration
 
 **Button styling** (in [ui/power_options_panel.py](ui/power_options_panel.py)):
 
--   Glass morphism effect with `rgba(255, 255, 255, 0.04)` background
--   Colored bottom borders on hover/press:
+-   Clean, modern design matching settings button style
+-   Transparent background by default
+-   Colored text on hover (button-specific accent colors):
     -   Shutdown: Red (#EF4444)
     -   Restart: Blue (#3B82F6)
     -   Shutdown (Cancel): Amber (#F59E0B)
     -   Restart (Cancel): Emerald (#10B981)
--   Hover state: 8% white background with warm cream text
--   Pressed state: 40% white background with golden text
+-   Hover state: 8% white background with colored text
+-   Pressed state: 15% white background with golden text (#ffd700)
 -   6px border radius for subtle rounded corners
+-   40px height, bold font
 
 **Panel styling**: Uses `PANEL_STYLE` from [ui/styles.py](ui/styles.py), created via factory function pattern
 
