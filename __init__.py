@@ -29,6 +29,7 @@ def main() -> None:
     if "--settings" in sys.argv:
         # Open settings dialog directly
         from ui.settings_dialog import SettingsDialog
+
         dialog = SettingsDialog()
         dialog.show()
         sys.exit(app.exec())

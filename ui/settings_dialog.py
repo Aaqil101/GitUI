@@ -1,6 +1,8 @@
 # ----- PyQt6 Modules -----
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QFont, QIcon, QCursor
+from pathlib import Path
+
+from PyQt6.QtCore import QEasingCurve, QPropertyAnimation, QSize, Qt, pyqtSignal
+from PyQt6.QtGui import QCursor, QFont, QIcon
 from PyQt6.QtWidgets import (
     QDialog,
     QFileDialog,
@@ -21,8 +23,10 @@ from core.config import (
     COLOR_ORANGE,
     FONT_FAMILY,
     FONT_SIZE_HEADER,
-    FONT_SIZE_LABEL,
     FONT_SIZE_STAT,
+    SETTINGS_SIDE_PANEL_ANIMATION_DURATION,
+    SETTINGS_SIDE_PANEL_WIDTH_COLLAPSED,
+    SETTINGS_SIDE_PANEL_WIDTH_EXPANDED,
     THEME_BG_PRIMARY,
     THEME_BG_SECONDARY,
     THEME_TEXT_PRIMARY,
@@ -31,9 +35,10 @@ from core.config import (
 )
 
 # ----- Manager Imports -----
-from core.settings_manager import SettingsManager
-from core.exclude_manager import ExcludeManager
 from core.custom_paths_manager import CustomPathsManager
+from core.exclude_manager import ExcludeManager
+from core.github_path_manager import GitHubPathManager
+from core.settings_manager import SettingsManager
 
 # ----- UI Component Imports -----
 from ui.settings_components import (
@@ -61,7 +66,7 @@ class SettingsDialog(QDialog):
 
     settings_saved = pyqtSignal(bool)  # Emits restart_needed flag
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None) -> None:
         """Initialize the settings dialog.
 
         Args:
@@ -71,16 +76,24 @@ class SettingsDialog(QDialog):
         self.settings_manager = SettingsManager()
         self.exclude_manager = ExcludeManager()
         self.custom_paths_manager = CustomPathsManager()
+        self.github_path_manager = GitHubPathManager()
 
         # Deep copy current settings to allow cancellation
         self.current_settings = self._deep_copy_dict(
             self.settings_manager.get_settings()
         )
         self.original_settings = self._deep_copy_dict(self.current_settings)
+
+        # Store original GitHub path for restart detection
+        self.original_github_path = str(self.github_path_manager.get_github_path())
+
         self.restart_needed = False
 
         # UI component references (populated in page creation methods)
         self.ui_components = {}
+
+        # Side panel collapse state
+        self.is_collapsed = False
 
         self._init_ui()
 
@@ -103,7 +116,98 @@ class SettingsDialog(QDialog):
                 result[key] = value
         return result
 
-    def _init_ui(self):
+    def _get_modern_scrollbar_style(self) -> str:
+        """Get modern scrollbar stylesheet with Tokyo Night theme.
+
+        Returns:
+            str: Modern scrollbar stylesheet
+        """
+        return f"""
+            QScrollArea {{
+                border: none;
+                background-color: {THEME_BG_PRIMARY};
+            }}
+            QScrollArea > QWidget > QWidget {{
+                background-color: {THEME_BG_PRIMARY};
+            }}
+
+            /* Vertical Scrollbar */
+            QScrollBar:vertical {{
+                background-color: transparent;
+                width: 12px;
+                margin: 4px 2px 4px 2px;
+                border-radius: 6px;
+            }}
+
+            /* Scrollbar Handle (Thumb) */
+            QScrollBar::handle:vertical {{
+                background-color: rgba(122, 162, 247, 0.3);
+                border-radius: 6px;
+                min-height: 30px;
+                margin: 0px 2px;
+            }}
+
+            QScrollBar::handle:vertical:hover {{
+                background-color: rgba(122, 162, 247, 0.5);
+            }}
+
+            QScrollBar::handle:vertical:pressed {{
+                background-color: rgba(122, 162, 247, 0.7);
+            }}
+
+            /* Remove arrow buttons */
+            QScrollBar::add-line:vertical,
+            QScrollBar::sub-line:vertical {{
+                height: 0px;
+                background: none;
+                border: none;
+            }}
+
+            /* Scrollbar background track */
+            QScrollBar::add-page:vertical,
+            QScrollBar::sub-page:vertical {{
+                background: rgba(255, 255, 255, 0.02);
+                border-radius: 6px;
+            }}
+
+            /* Horizontal Scrollbar (if needed) */
+            QScrollBar:horizontal {{
+                background-color: transparent;
+                height: 12px;
+                margin: 2px 4px 2px 4px;
+                border-radius: 6px;
+            }}
+
+            QScrollBar::handle:horizontal {{
+                background-color: rgba(122, 162, 247, 0.3);
+                border-radius: 6px;
+                min-width: 30px;
+                margin: 2px 0px;
+            }}
+
+            QScrollBar::handle:horizontal:hover {{
+                background-color: rgba(122, 162, 247, 0.5);
+            }}
+
+            QScrollBar::handle:horizontal:pressed {{
+                background-color: rgba(122, 162, 247, 0.7);
+            }}
+
+            QScrollBar::add-line:horizontal,
+            QScrollBar::sub-line:horizontal {{
+                width: 0px;
+                background: none;
+                border: none;
+            }}
+
+            QScrollBar::add-page:horizontal,
+            QScrollBar::sub-page:horizontal {{
+                background: rgba(255, 255, 255, 0.02);
+                border-radius: 6px;
+            }}
+        """
+
+    def _init_ui(self) -> None:
         """Initialize the user interface."""
         self.setWindowTitle("Settings")
         self.setFixedSize(800, 550)
@@ -111,7 +215,7 @@ class SettingsDialog(QDialog):
         self.setModal(True)
 
         # Set window icon
-        paths = get_default_paths()
+        paths: dict[str, Path] = get_default_paths()
         self.setWindowIcon(QIcon(str(paths["app_icon"])))
 
         # Main layout
@@ -146,7 +250,7 @@ class SettingsDialog(QDialog):
             QWidget: Side panel widget
         """
         panel = QWidget()
-        panel.setFixedWidth(180)
+        panel.setFixedWidth(SETTINGS_SIDE_PANEL_WIDTH_EXPANDED)
         panel.setStyleSheet(
             f"""
             QWidget {{
@@ -159,20 +263,57 @@ class SettingsDialog(QDialog):
         layout.setSpacing(0)
         layout.setContentsMargins(0, 0, 0, 0)
 
-        # Header
-        header = QLabel(f"{Icons.SETTINGS}  Settings")
-        header.setFont(QFont(FONT_FAMILY, FONT_SIZE_HEADER, QFont.Weight.Bold))
-        header.setStyleSheet(
+        # Header with toggle button
+        header_container = QWidget()
+        header_container.setStyleSheet(
             f"""
-            QLabel {{
-                color: {THEME_TEXT_PRIMARY};
-                padding: 20px 16px;
+            QWidget {{
                 background-color: rgba(122, 162, 247, 0.1);
                 border-bottom: 1px solid rgba(122, 162, 247, 0.3);
             }}
             """
         )
-        layout.addWidget(header)
+        header_layout = QHBoxLayout(header_container)
+        header_layout.setContentsMargins(16, 16, 16, 16)
+        header_layout.setSpacing(8)
+
+        # Header label
+        self.header_label = QLabel(f"{Icons.SETTINGS}  Settings")
+        self.header_label.setFont(
+            QFont(FONT_FAMILY, FONT_SIZE_HEADER, QFont.Weight.Bold)
+        )
+        self.header_label.setStyleSheet(f"color: {THEME_TEXT_PRIMARY};")
+        header_layout.addWidget(self.header_label)
+
+        header_layout.addStretch()
+
+        # Toggle button
+        self.toggle_btn = QPushButton(Icons.CHEVRON_LEFT)
+        self.toggle_btn.setFont(QFont(FONT_FAMILY, 14))
+        self.toggle_btn.setFixedSize(32, 32)
+        self.toggle_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.toggle_btn.setStyleSheet(
+            f"""
+            QPushButton {{
+                background-color: transparent;
+                color: {THEME_TEXT_PRIMARY};
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                border-radius: 6px;
+                padding: 4px;
+            }}
+            QPushButton:hover {{
+                background-color: rgba(122, 162, 247, 0.2);
+                border: 1px solid rgba(122, 162, 247, 0.5);
+            }}
+            QPushButton:pressed {{
+                background-color: rgba(122, 162, 247, 0.3);
+            }}
+            """
+        )
+        self.toggle_btn.clicked.connect(self._toggle_panel)
+        header_layout.addWidget(self.toggle_btn)
+
+        layout.addWidget(header_container)
 
         # Navigation list
         self.nav_list = QListWidget()
@@ -200,21 +341,58 @@ class SettingsDialog(QDialog):
             """
         )
 
-        # Navigation items
-        nav_items = [
-            f"{Icons.FOLDER}  General",
-            f"{Icons.GIT_PUSH}  Git Operations",
-            f"{Icons.PALETTE}  Appearance",
-            f"{Icons.ADVANCED}  Advanced",
+        # Navigation items with icon/text data
+        self.nav_items_data: list[tuple[str, str]] = [
+            (Icons.FOLDER, "General"),
+            (Icons.GIT, "Git Operations"),
+            (Icons.PALETTE, "Appearance"),
+            (Icons.ADVANCED, "Advanced"),
         ]
 
-        for item_text in nav_items:
-            item = QListWidgetItem(item_text)
+        # Store custom widgets for each item
+        self.nav_item_widgets: list[QWidget] = []
+
+        for icon, text in self.nav_items_data:
+            # Create item
+            item = QListWidgetItem()
+            item.setSizeHint(QSize(0, 50))  # Set height for custom widget
             self.nav_list.addItem(item)
+
+            # Create custom widget with separate icon and text labels
+            widget = QWidget()
+            widget_layout = QHBoxLayout(widget)
+            widget_layout.setContentsMargins(8, 0, 8, 0)
+            widget_layout.setSpacing(12)
+
+            # Icon label with larger font
+            icon_label = QLabel(icon)
+            icon_label.setFont(QFont(FONT_FAMILY, 16))
+            icon_label.setStyleSheet(f"color: {THEME_TEXT_SECONDARY};")
+            widget_layout.addWidget(icon_label)
+
+            # Text label with normal font
+            text_label = QLabel(text)
+            text_label.setFont(QFont(FONT_FAMILY, FONT_SIZE_STAT))
+            text_label.setStyleSheet(f"color: {THEME_TEXT_SECONDARY};")
+            widget_layout.addWidget(text_label)
+            widget_layout.addStretch()
+
+            # Store references
+            widget.setProperty("icon_label", icon_label)
+            widget.setProperty("text_label", text_label)
+            widget.setProperty("icon", icon)
+            widget.setProperty("text", text)
+
+            self.nav_item_widgets.append(widget)
+            self.nav_list.setItemWidget(item, widget)
 
         self.nav_list.setCurrentRow(0)
         self.nav_list.currentRowChanged.connect(self._on_nav_item_clicked)
+        self.nav_list.currentRowChanged.connect(self._update_nav_colors)
         layout.addWidget(self.nav_list)
+
+        # Set initial colors
+        self._update_nav_colors(0)
 
         return panel
 
@@ -253,17 +431,7 @@ class SettingsDialog(QDialog):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QScrollArea.Shape.NoFrame)
-        scroll.setStyleSheet(
-            f"""
-            QScrollArea {{
-                border: none;
-                background-color: {THEME_BG_PRIMARY};
-            }}
-            QScrollArea > QWidget > QWidget {{
-                background-color: {THEME_BG_PRIMARY};
-            }}
-            """
-        )
+        scroll.setStyleSheet(self._get_modern_scrollbar_style())
 
         content = QWidget()
         content.setStyleSheet(f"background-color: {THEME_BG_PRIMARY};")
@@ -274,16 +442,27 @@ class SettingsDialog(QDialog):
         # Repository Paths Section
         layout.addWidget(create_settings_section("Repository Paths", Icons.FOLDER))
 
+        # Add current username display
+        username_label = QLabel(
+            f"{Icons.USER}  Current User: {self.github_path_manager.get_current_user_name()}"
+        )
+        username_label.setStyleSheet(
+            f"color: {COLOR_ORANGE}; font-size: {FONT_SIZE_STAT}pt; font-family: '{FONT_FAMILY}'; padding: 4px 8px;"
+        )
+        layout.addWidget(username_label)
+
         github_path_widget, github_path_edit = create_path_selector(
-            "GitHub Repositories Folder",
-            self.current_settings["general"]["github_path"],
+            "GitHub Repositories Folder (username-specific)",
+            str(self.github_path_manager.get_github_path()),
             lambda: None,  # No real-time callback needed
         )
         self.ui_components["github_path"] = github_path_edit
         layout.addWidget(github_path_widget)
 
         # Custom Repository Paths
-        custom_paths = [str(p) for p in self.custom_paths_manager.get_custom_paths()]
+        custom_paths: list[str] = [
+            str(p) for p in self.custom_paths_manager.get_custom_paths()
+        ]
         custom_paths_widget, custom_paths_list = create_list_manager(
             "Custom Repository Paths (scanned in addition to GitHub folder)",
             custom_paths,
@@ -300,7 +479,7 @@ class SettingsDialog(QDialog):
 
         # Username display
         username_label = QLabel(
-            f"Current User: {self.exclude_manager.get_current_machine_name()}"
+            f"Current User: {self.exclude_manager.get_current_user_name()}"
         )
         username_label.setFont(QFont(FONT_FAMILY, FONT_SIZE_STAT))
         username_label.setStyleSheet(
@@ -315,7 +494,7 @@ class SettingsDialog(QDialog):
         layout.addWidget(username_label)
 
         # Excluded repositories list
-        excluded_repos = self.exclude_manager.get_excluded_repos()
+        excluded_repos: list[str] = self.exclude_manager.get_excluded_repos()
         exclude_widget, exclude_list = create_list_manager(
             "Excluded Repositories (by repository name, not path)",
             excluded_repos,
@@ -411,17 +590,7 @@ class SettingsDialog(QDialog):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QScrollArea.Shape.NoFrame)
-        scroll.setStyleSheet(
-            f"""
-            QScrollArea {{
-                border: none;
-                background-color: {THEME_BG_PRIMARY};
-            }}
-            QScrollArea > QWidget > QWidget {{
-                background-color: {THEME_BG_PRIMARY};
-            }}
-            """
-        )
+        scroll.setStyleSheet(self._get_modern_scrollbar_style())
 
         content = QWidget()
         content.setStyleSheet(f"background-color: {THEME_BG_PRIMARY};")
@@ -494,17 +663,7 @@ class SettingsDialog(QDialog):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QScrollArea.Shape.NoFrame)
-        scroll.setStyleSheet(
-            f"""
-            QScrollArea {{
-                border: none;
-                background-color: {THEME_BG_PRIMARY};
-            }}
-            QScrollArea > QWidget > QWidget {{
-                background-color: {THEME_BG_PRIMARY};
-            }}
-            """
-        )
+        scroll.setStyleSheet(self._get_modern_scrollbar_style())
 
         content = QWidget()
         content.setStyleSheet(f"background-color: {THEME_BG_PRIMARY};")
@@ -513,12 +672,10 @@ class SettingsDialog(QDialog):
         layout.setContentsMargins(24, 20, 24, 20)
 
         # Font Configuration Section
-        layout.addWidget(
-            create_settings_section("Font Configuration", Icons.FONT)
-        )
+        layout.addWidget(create_settings_section("Font Configuration", Icons.FONT))
 
         font_family_widget, font_family_edit = create_path_selector(
-            "Font Family (requires Nerd Font for icons)",
+            "Font Family (<span style='color:red; font-weight: bold'>requires Nerd Font for icons</span>)",
             self.current_settings["appearance"]["font_family"],
             lambda: None,
         )
@@ -614,17 +771,7 @@ class SettingsDialog(QDialog):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QScrollArea.Shape.NoFrame)
-        scroll.setStyleSheet(
-            f"""
-            QScrollArea {{
-                border: none;
-                background-color: {THEME_BG_PRIMARY};
-            }}
-            QScrollArea > QWidget > QWidget {{
-                background-color: {THEME_BG_PRIMARY};
-            }}
-            """
-        )
+        scroll.setStyleSheet(self._get_modern_scrollbar_style())
 
         content = QWidget()
         content.setStyleSheet(f"background-color: {THEME_BG_PRIMARY};")
@@ -775,7 +922,7 @@ class SettingsDialog(QDialog):
 
         return bar
 
-    def _on_nav_item_clicked(self, index: int):
+    def _on_nav_item_clicked(self, index: int) -> None:
         """Handle navigation item selection.
 
         Args:
@@ -783,7 +930,79 @@ class SettingsDialog(QDialog):
         """
         self.stacked_widget.setCurrentIndex(index)
 
-    def _on_add_custom_path(self, list_widget):
+    def _update_nav_colors(self, index: int) -> None:
+        """Update navigation item colors based on selection.
+
+        Args:
+            index: Currently selected item index
+        """
+        for i, widget in enumerate(self.nav_item_widgets):
+            icon_label = widget.property("icon_label")
+            text_label = widget.property("text_label")
+
+            if i == index:
+                # Selected - primary color
+                icon_label.setStyleSheet(f"color: {THEME_TEXT_PRIMARY};")
+                text_label.setStyleSheet(f"color: {THEME_TEXT_PRIMARY};")
+            else:
+                # Not selected - secondary color
+                icon_label.setStyleSheet(f"color: {THEME_TEXT_SECONDARY};")
+                text_label.setStyleSheet(f"color: {THEME_TEXT_SECONDARY};")
+
+    def _toggle_panel(self) -> None:
+        """Toggle the side panel between collapsed and expanded states."""
+        # Toggle state
+        self.is_collapsed: bool = not self.is_collapsed
+
+        # Determine target width
+        target_width = (
+            SETTINGS_SIDE_PANEL_WIDTH_COLLAPSED
+            if self.is_collapsed
+            else SETTINGS_SIDE_PANEL_WIDTH_EXPANDED
+        )
+
+        # Update toggle button icon
+        self.toggle_btn.setText(
+            Icons.CHEVRON_RIGHT if self.is_collapsed else Icons.CHEVRON_LEFT
+        )
+
+        # Show/hide header text
+        if self.is_collapsed:
+            self.header_label.setText(Icons.SETTINGS)
+        else:
+            self.header_label.setText(f"{Icons.SETTINGS}  Settings")
+
+        # Show/hide navigation text labels in custom widgets
+        for i, widget in enumerate(self.nav_item_widgets):
+            text_label = widget.property("text_label")
+            text = widget.property("text")
+
+            if self.is_collapsed:
+                # Hide text, show tooltip
+                text_label.setVisible(False)
+                self.nav_list.item(i).setToolTip(text)
+            else:
+                # Show text, clear tooltip
+                text_label.setVisible(True)
+                self.nav_list.item(i).setToolTip("")
+
+        # Animate width change
+        self.panel_animation = QPropertyAnimation(self.side_panel, b"minimumWidth")
+        self.panel_animation.setDuration(SETTINGS_SIDE_PANEL_ANIMATION_DURATION)
+        self.panel_animation.setStartValue(self.side_panel.width())
+        self.panel_animation.setEndValue(target_width)
+        self.panel_animation.setEasingCurve(QEasingCurve.Type.InOutQuad)
+        self.panel_animation.start()
+
+        # Also animate maximum width to match
+        self.panel_animation_max = QPropertyAnimation(self.side_panel, b"maximumWidth")
+        self.panel_animation_max.setDuration(SETTINGS_SIDE_PANEL_ANIMATION_DURATION)
+        self.panel_animation_max.setStartValue(self.side_panel.width())
+        self.panel_animation_max.setEndValue(target_width)
+        self.panel_animation_max.setEasingCurve(QEasingCurve.Type.InOutQuad)
+        self.panel_animation_max.start()
+
+    def _on_add_custom_path(self, list_widget) -> None:
         """Handle adding a custom repository path.
 
         Args:
@@ -791,7 +1010,7 @@ class SettingsDialog(QDialog):
         """
         from PyQt6.QtWidgets import QListWidgetItem
 
-        folder = QFileDialog.getExistingDirectory(
+        folder: str = QFileDialog.getExistingDirectory(
             self, "Select Custom Repository Folder"
         )
         if folder:
@@ -815,7 +1034,7 @@ class SettingsDialog(QDialog):
             item = QListWidgetItem(folder)
             list_widget.addItem(item)
 
-    def _on_remove_custom_path(self, list_widget, path: str):
+    def _on_remove_custom_path(self, list_widget, path: str) -> None:
         """Handle removing a custom repository path.
 
         Args:
@@ -828,7 +1047,7 @@ class SettingsDialog(QDialog):
                 list_widget.takeItem(i)
                 break
 
-    def _on_add_exclusion(self, list_widget):
+    def _on_add_exclusion(self, list_widget) -> None:
         """Handle adding a repository exclusion.
 
         Args:
@@ -859,7 +1078,7 @@ class SettingsDialog(QDialog):
             item = QListWidgetItem(repo_name)
             list_widget.addItem(item)
 
-    def _on_remove_exclusion(self, list_widget, repo_name: str):
+    def _on_remove_exclusion(self, list_widget, repo_name: str) -> None:
         """Handle removing a repository exclusion.
 
         Args:
@@ -872,12 +1091,30 @@ class SettingsDialog(QDialog):
                 list_widget.takeItem(i)
                 break
 
-    def _on_save_clicked(self):
+    def _on_save_clicked(self) -> None:
         """Handle Save button click."""
         # Collect values from UI components
-        self.current_settings["general"]["github_path"] = self.ui_components[
-            "github_path"
-        ].text()
+        new_github_path = self.ui_components["github_path"].text()
+
+        # Validate GitHub path
+        is_valid, error_msg = self.github_path_manager.validate_path(new_github_path)
+        if not is_valid:
+            QMessageBox.warning(
+                self,
+                "Invalid Path",
+                f"GitHub path is invalid:\n{error_msg}",
+            )
+            return
+
+        # Save GitHub path (username-specific)
+        if not self.github_path_manager.save_github_path(new_github_path):
+            QMessageBox.critical(
+                self,
+                "Save Failed",
+                "Failed to save GitHub path. Please try again.",
+            )
+            return
+
         self.current_settings["general"]["window_always_on_top"] = self.ui_components[
             "always_on_top"
         ].isChecked()
@@ -890,25 +1127,25 @@ class SettingsDialog(QDialog):
         self.current_settings["general"]["auto_close_delay"] = self.ui_components[
             "auto_close_delay"
         ].value()
-        self.current_settings["general"][
-            "auto_close_no_repos_delay"
-        ] = self.ui_components["auto_close_no_repos_delay"].value()
+        self.current_settings["general"]["auto_close_no_repos_delay"] = (
+            self.ui_components["auto_close_no_repos_delay"].value()
+        )
 
-        self.current_settings["git_operations"][
-            "powershell_throttle_limit"
-        ] = self.ui_components["throttle_limit"].value()
+        self.current_settings["git_operations"]["powershell_throttle_limit"] = (
+            self.ui_components["throttle_limit"].value()
+        )
         self.current_settings["git_operations"]["scan_timeout"] = self.ui_components[
             "scan_timeout"
         ].value()
-        self.current_settings["git_operations"][
-            "operation_timeout"
-        ] = self.ui_components["operation_timeout"].value()
-        self.current_settings["git_operations"][
-            "power_countdown_seconds"
-        ] = self.ui_components["power_countdown"].value()
-        self.current_settings["git_operations"][
-            "exclude_confirmation_timeout"
-        ] = self.ui_components["exclude_timeout"].value()
+        self.current_settings["git_operations"]["operation_timeout"] = (
+            self.ui_components["operation_timeout"].value()
+        )
+        self.current_settings["git_operations"]["power_countdown_seconds"] = (
+            self.ui_components["power_countdown"].value()
+        )
+        self.current_settings["git_operations"]["exclude_confirmation_timeout"] = (
+            self.ui_components["exclude_timeout"].value()
+        )
 
         self.current_settings["appearance"]["font_family"] = self.ui_components[
             "font_family"
@@ -925,12 +1162,12 @@ class SettingsDialog(QDialog):
         self.current_settings["appearance"]["font_size_stat"] = self.ui_components[
             "font_size_stat"
         ].value()
-        self.current_settings["appearance"][
+        self.current_settings["appearance"]["enable_animations"] = self.ui_components[
             "enable_animations"
-        ] = self.ui_components["enable_animations"].isChecked()
-        self.current_settings["appearance"][
+        ].isChecked()
+        self.current_settings["appearance"]["animation_duration"] = self.ui_components[
             "animation_duration"
-        ] = self.ui_components["animation_duration"].value()
+        ].value()
 
         self.current_settings["advanced"]["test_mode_default"] = self.ui_components[
             "test_mode_default"
@@ -938,12 +1175,12 @@ class SettingsDialog(QDialog):
         self.current_settings["advanced"]["scan_start_delay"] = self.ui_components[
             "scan_start_delay"
         ].value()
-        self.current_settings["advanced"][
-            "operations_start_delay"
-        ] = self.ui_components["operations_start_delay"].value()
+        self.current_settings["advanced"]["operations_start_delay"] = (
+            self.ui_components["operations_start_delay"].value()
+        )
 
         # Save main settings
-        success = self.settings_manager.save_settings(self.current_settings)
+        success: bool = self.settings_manager.save_settings(self.current_settings)
         if not success:
             QMessageBox.critical(
                 self,
@@ -955,8 +1192,7 @@ class SettingsDialog(QDialog):
         # Save custom paths
         custom_paths_list = self.ui_components["custom_paths_list"]
         custom_paths = [
-            custom_paths_list.item(i).text()
-            for i in range(custom_paths_list.count())
+            custom_paths_list.item(i).text() for i in range(custom_paths_list.count())
         ]
         self.custom_paths_manager.save_custom_paths(custom_paths)
 
@@ -968,7 +1204,7 @@ class SettingsDialog(QDialog):
         self.exclude_manager.save_exclusions(excluded_repos)
 
         # Check if restart needed
-        self.restart_needed = self._check_restart_needed()
+        self.restart_needed: bool = self._check_restart_needed()
 
         # Emit signal
         self.settings_saved.emit(self.restart_needed)
@@ -987,11 +1223,11 @@ class SettingsDialog(QDialog):
 
         self.accept()
 
-    def _on_cancel_clicked(self):
+    def _on_cancel_clicked(self) -> None:
         """Handle Cancel button click."""
         self.reject()
 
-    def _on_reset_clicked(self):
+    def _on_reset_clicked(self) -> None:
         """Handle Reset to Defaults button click."""
         reply = QMessageBox.question(
             self,
@@ -1030,8 +1266,11 @@ class SettingsDialog(QDialog):
         Returns:
             bool: True if restart needed, False otherwise
         """
-        restart_keys = [
-            ("general", "github_path"),
+        # Check if GitHub path changed (username-specific setting)
+        if self.original_github_path != str(self.github_path_manager.get_github_path()):
+            return True
+
+        restart_keys: list[tuple[str, str]] = [
             ("general", "window_width"),
             ("general", "window_height"),
             ("git_operations", "powershell_throttle_limit"),
@@ -1046,14 +1285,13 @@ class SettingsDialog(QDialog):
         ]
 
         for category, key in restart_keys:
-            if (
-                self.current_settings.get(category, {}).get(key)
-                != self.original_settings.get(category, {}).get(key)
-            ):
+            if self.current_settings.get(category, {}).get(
+                key
+            ) != self.original_settings.get(category, {}).get(key):
                 return True
 
         # Check custom paths
-        original_custom_paths = [
+        original_custom_paths: list[str] = [
             str(p) for p in self.custom_paths_manager.get_custom_paths()
         ]
         current_custom_paths = [

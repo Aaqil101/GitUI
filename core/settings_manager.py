@@ -9,7 +9,7 @@ class SettingsManager:
     """Singleton class for managing application settings.
 
     Handles loading, saving, and accessing settings stored in JSON format.
-    Settings are stored in %appdata%\GitUI\settings.json.
+    Settings are stored in %appdata%\\GitUI\\settings.json.
     """
 
     _instance = None
@@ -39,7 +39,7 @@ class SettingsManager:
             dict: Loaded settings merged with defaults
         """
         try:
-            settings_path = self.get_settings_path()
+            settings_path: Path = self.get_settings_path()
             if settings_path.exists():
                 with open(settings_path, "r", encoding="utf-8") as f:
                     loaded = json.load(f)
@@ -47,7 +47,7 @@ class SettingsManager:
         except json.JSONDecodeError as e:
             print(f"Settings file corrupted: {e}")
             # Backup corrupted file
-            backup_path = self.get_settings_path().with_suffix(".json.backup")
+            backup_path: Path = self.get_settings_path().with_suffix(".json.backup")
             try:
                 shutil.copy(self.get_settings_path(), backup_path)
                 print(f"Corrupted settings backed up to: {backup_path}")
@@ -69,11 +69,11 @@ class SettingsManager:
             bool: True if save successful, False otherwise
         """
         try:
-            settings_path = self.get_settings_path()
+            settings_path: Path = self.get_settings_path()
             settings_path.parent.mkdir(parents=True, exist_ok=True)
 
             # Write to temp file first (atomic write)
-            temp_path = settings_path.with_suffix(".json.tmp")
+            temp_path: Path = settings_path.with_suffix(".json.tmp")
             with open(temp_path, "w", encoding="utf-8") as f:
                 json.dump(settings, f, indent=2)
 
@@ -99,7 +99,7 @@ class SettingsManager:
         """Get the path to the settings JSON file.
 
         Returns:
-            Path: Path to settings.json in %appdata%\GitUI\
+            Path: Path to settings.json in %appdata%\\GitUI\\
         """
         appdata = os.getenv("APPDATA")
         if not appdata:
@@ -139,7 +139,6 @@ class SettingsManager:
         return {
             "version": "1.0",
             "general": {
-                "github_path": str(Path.home() / "Documents" / "GitHub"),
                 "window_always_on_top": True,
                 "window_width": 920,
                 "window_height": 620,

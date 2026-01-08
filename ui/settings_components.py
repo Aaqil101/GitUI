@@ -68,9 +68,7 @@ def create_settings_section(title: str, icon: str = "") -> QWidget:
 # ══════════════════════════════════════════════════════════════════
 # PATH SELECTOR
 # ══════════════════════════════════════════════════════════════════
-def create_path_selector(
-    label: str, value: str, callback
-) -> tuple[QWidget, QLineEdit]:
+def create_path_selector(label: str, value: str, callback) -> tuple[QWidget, QLineEdit]:
     """Create a path selector with label, text field, and browse button.
 
     Args:
@@ -141,8 +139,8 @@ def create_path_selector(
         """
     )
 
-    def on_browse():
-        folder = QFileDialog.getExistingDirectory(
+    def on_browse() -> None:
+        folder: str = QFileDialog.getExistingDirectory(
             widget, "Select Folder", line_edit.text()
         )
         if folder:
@@ -440,7 +438,7 @@ def create_list_manager(
         """
     )
 
-    def on_remove():
+    def on_remove() -> None:
         current_item = list_widget.currentItem()
         if current_item:
             remove_callback(list_widget, current_item.text())
@@ -453,7 +451,7 @@ def create_list_manager(
     layout.addWidget(buttons_row)
 
     # Enable/disable remove button based on selection
-    def update_remove_button():
+    def update_remove_button() -> None:
         remove_btn.setEnabled(list_widget.currentItem() is not None)
 
     list_widget.itemSelectionChanged.connect(update_remove_button)

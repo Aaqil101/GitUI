@@ -7,10 +7,10 @@ from pathlib import Path
 
 
 class CustomPathsManager:
-    """Singleton class for managing machine-specific custom repository paths.
+    """Singleton class for managing user-specific custom repository paths.
 
     Handles loading, saving, and accessing custom repository paths stored in JSON format.
-    Custom paths are machine-specific, stored in %appdata%\GitUI\custom_repositories.json.
+    Custom paths are user-specific, stored in %appdata%\\GitUI\\custom_repositories.json.
     """
 
     _instance = None
@@ -40,14 +40,14 @@ class CustomPathsManager:
             dict: Loaded custom paths
         """
         try:
-            custom_paths_path = self.get_custom_paths_file()
+            custom_paths_path: Path = self.get_custom_paths_file()
             if custom_paths_path.exists():
                 with open(custom_paths_path, "r", encoding="utf-8") as f:
                     return json.load(f)
         except json.JSONDecodeError as e:
             print(f"Custom paths file corrupted: {e}")
             # Backup corrupted file
-            backup_path = self.get_custom_paths_file().with_suffix(".json.backup")
+            backup_path: Path = self.get_custom_paths_file().with_suffix(".json.backup")
             try:
                 shutil.copy(self.get_custom_paths_file(), backup_path)
                 print(f"Corrupted custom paths backed up to: {backup_path}")
@@ -57,10 +57,10 @@ class CustomPathsManager:
             print(f"Error loading custom paths: {e}")
 
         # Return empty structure if loading failed
-        return {"version": "1.0", "machines": {}}
+        return {"version": "1.0", "users": {}}
 
     def save_custom_paths(self, paths_list: list[str]) -> bool:
-        """Save custom paths for current machine to JSON file.
+        """Save custom paths for current user to JSON file.
 
         Args:
             paths_list: List of custom repository paths
@@ -72,19 +72,19 @@ class CustomPathsManager:
             # Load current custom paths
             custom_paths_data = self.get_custom_paths_data()
 
-            # Update custom paths for current machine
-            machine_name = self.get_current_machine_name()
-            if "machines" not in custom_paths_data:
-                custom_paths_data["machines"] = {}
+            # Update custom paths for current user
+            user_name = self.get_current_user_name()
+            if "users" not in custom_paths_data:
+                custom_paths_data["users"] = {}
 
-            custom_paths_data["machines"][machine_name] = {"custom_paths": paths_list}
+            custom_paths_data["users"][user_name] = {"custom_paths": paths_list}
 
             # Save to file
-            custom_paths_path = self.get_custom_paths_file()
+            custom_paths_path: Path = self.get_custom_paths_file()
             custom_paths_path.parent.mkdir(parents=True, exist_ok=True)
 
             # Write to temp file first (atomic write)
-            temp_path = custom_paths_path.with_suffix(".json.tmp")
+            temp_path: Path = custom_paths_path.with_suffix(".json.tmp")
             with open(temp_path, "w", encoding="utf-8") as f:
                 json.dump(custom_paths_data, f, indent=2)
 
@@ -98,19 +98,19 @@ class CustomPathsManager:
             return False
 
     def get_custom_paths(self) -> list[Path]:
-        """Get list of custom paths for current machine only.
+        """Get list of custom paths for current user only.
 
         Returns:
             list[Path]: List of custom repository paths as Path objects
         """
-        machine_name = self.get_current_machine_name()
+        user_name: str = self.get_current_user_name()
         custom_paths_data = self.get_custom_paths_data()
-        machine_data = custom_paths_data.get("machines", {}).get(machine_name, {})
-        path_strings = machine_data.get("custom_paths", [])
+        user_data = custom_paths_data.get("users", {}).get(user_name, {})
+        path_strings = user_data.get("custom_paths", [])
         return [Path(p) for p in path_strings]
 
     def add_path(self, path: str) -> tuple[bool, str]:
-        """Add new custom path with validation for current machine.
+        """Add new custom path with validation for current user.
 
         Args:
             path: Path to add
@@ -124,7 +124,7 @@ class CustomPathsManager:
             return False, error_msg
 
         # Get current paths
-        current_paths = [str(p) for p in self.get_custom_paths()]
+        current_paths: list[str] = [str(p) for p in self.get_custom_paths()]
 
         # Check if already exists
         if path in current_paths:
@@ -132,7 +132,7 @@ class CustomPathsManager:
 
         # Add new path
         current_paths.append(path)
-        success = self.save_custom_paths(current_paths)
+        success: bool = self.save_custom_paths(current_paths)
 
         if success:
             return True, ""
@@ -140,7 +140,7 @@ class CustomPathsManager:
             return False, "Failed to save custom paths"
 
     def remove_path(self, path: str) -> bool:
-        """Remove custom path from current machine.
+        """Remove custom path from current user.
 
         Args:
             path: Path to remove
@@ -148,7 +148,7 @@ class CustomPathsManager:
         Returns:
             bool: True if remove successful, False otherwise
         """
-        current_paths = [str(p) for p in self.get_custom_paths()]
+        current_paths: list[str] = [str(p) for p in self.get_custom_paths()]
 
         if path in current_paths:
             current_paths.remove(path)
@@ -192,18 +192,18 @@ class CustomPathsManager:
             return False, f"Invalid path: {str(e)}"
 
     def get_all_scan_paths(self) -> list[Path]:
-        """Get all paths to scan (GitHub + custom) for current machine.
+        """Get all paths to scan (GitHub + custom) for current user.
 
         Returns:
             list[Path]: List of all paths to scan
         """
         from core.config import get_default_paths
 
-        paths = [get_default_paths()["github"]]
-        paths.extend(self.get_custom_paths())  # Machine-specific
+        paths: list[Path] = [get_default_paths()["github"]]
+        paths.extend(self.get_custom_paths())  # User-specific
         return paths
 
-    def get_current_machine_name(self) -> str:
+    def get_current_user_name(self) -> str:
         """Get the current user's username.
 
         Returns:
@@ -215,7 +215,7 @@ class CustomPathsManager:
         """Get the path to the custom repositories JSON file.
 
         Returns:
-            Path: Path to custom_repositories.json in %appdata%\GitUI\
+            Path: Path to custom_repositories.json in %appdata%\\GitUI\\
         """
         appdata = os.getenv("APPDATA")
         if not appdata:

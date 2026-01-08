@@ -139,45 +139,42 @@ def create_power_options_panel(parent=None) -> tuple[QWidget, PowerOptionsSignal
 
 
 def _create_power_button(text: str, color: str) -> QPushButton:
-    """Create a modern styled power option button with subtle glass effect.
+    """Create a modern styled power option button matching settings button style.
 
     Args:
         text: Button text
-        color: Button accent color for bottom border
+        color: Button accent color for hover/press
 
     Returns:
-        QPushButton: Styled button with glass morphism effect
+        QPushButton: Styled button with clean, modern design
     """
     button = QPushButton(text)
     button.setFixedHeight(40)
-    button.setFont(QFont(FONT_FAMILY, FONT_SIZE_STAT))
+    button.setFont(QFont(FONT_FAMILY, FONT_SIZE_STAT, QFont.Weight.Bold))
     button.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
 
-    # Subtle glass morphism with bottom border accent
+    # Clean button style matching settings button
     button.setStyleSheet(
         f"""
         QPushButton {{
             background-color: rgba(255, 255, 255, 0.04);
-            color: rgba(255, 255, 255, 0.8);
+            color: rgba(255, 255, 255, 0.9);
             font-weight: bold;
             padding: 4px;
-            border: 2px solid transparent;
+            border: none;
             border-radius: 6px;
         }}
         QPushButton:hover {{
             background-color: rgba(255, 255, 255, 0.08);
-            color: rgba(239, 232, 194, 0.9);
-            border-bottom: 2px solid {color};
+            color: {color};
         }}
         QPushButton:pressed {{
-            background-color: rgba(255, 255, 255, 0.40);
-            color: rgba(238, 229, 177, 0.80);
-            border-bottom: 2px solid {color};
+            background-color: rgba(255, 255, 255, 0.15);
+            color: #ffd700;
         }}
         QPushButton:disabled {{
             background-color: rgba(255, 255, 255, 0.02);
             color: rgba(255, 255, 255, 0.3);
-            border: 2px solid transparent;
         }}
         """
     )

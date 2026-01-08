@@ -62,6 +62,11 @@ SCANNER_PANEL_PADDING = (20, 16, 20, 16)
 STATS_PANEL_PADDING = (20, 16, 20, 16)
 CARD_AREA_PADDING = (0, 0, 8, 0)
 
+# Settings Dialog Side Panel
+SETTINGS_SIDE_PANEL_WIDTH_EXPANDED = 180
+SETTINGS_SIDE_PANEL_WIDTH_COLLAPSED = 60
+SETTINGS_SIDE_PANEL_ANIMATION_DURATION = 300
+
 # Border Radius
 PANEL_BORDER_RADIUS = 12
 BUTTON_BORDER_RADIUS = 8
@@ -96,12 +101,19 @@ SHADOW_OPACITY = 70
 # PATH CONFIGURATION
 # ══════════════════════════════════════════════════════════════════
 def get_default_paths() -> dict[str, Path]:
-    """Get default paths for the application."""
+    """Get default paths for the application.
+
+    Note: The 'github' path is now username-specific via GitHubPathManager.
+    """
+    from core.github_path_manager import GitHubPathManager
+
     script_dir: Path = Path(__file__).resolve().parent.parent
+    github_path_manager = GitHubPathManager()
+
     return {
         "script_dir": script_dir,
         "assets": script_dir / "assets",
-        "github": Path.home() / "Documents" / "GitHub",
+        "github": github_path_manager.get_github_path(),
         "msg_icon": script_dir / "assets" / "Message.ico",
         "app_icon": script_dir / "assets" / "Git.ico",
     }

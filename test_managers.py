@@ -1,11 +1,12 @@
 """Test script for validating Settings, Exclude, and CustomPaths managers."""
 
+import importlib.util
 import sys
 from pathlib import Path
-import importlib.util
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent))
+
 
 # Direct imports to avoid core/__init__.py
 def import_module_from_path(module_name, file_path):
@@ -14,6 +15,7 @@ def import_module_from_path(module_name, file_path):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
 
 # Import managers directly
 base_path = Path(__file__).parent / "core"
