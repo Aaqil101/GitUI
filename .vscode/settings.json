@@ -4,8 +4,15 @@
         "LOCALAPPDATA",
         "morphism",
         "nvim",
+        "pathlib",
+        "qproperty",
         "rgba",
+        "Spinbox",
+        "spinboxes",
+        "uddd",
+        "udfab",
         "uead",
+        "ueae",
         "unpushed",
         "venv"
     ]
