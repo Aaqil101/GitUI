@@ -156,7 +156,6 @@ MY_NEW_SETTING = get_my_new_setting()
 ### UI Files
 - `ui/settings_dialog.py` - Main settings dialog (870 lines)
 - `ui/settings_components.py` - Reusable UI components (463 lines)
-- `ui/settings_button.py` - Settings button factory (60 lines)
 - `ui/exclude_confirmation_dialog.py` - Exclusion confirmation (272 lines)
 
 ### Data Storage
