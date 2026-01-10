@@ -19,6 +19,7 @@ from PyQt6.QtWidgets import (
 
 # ----- Config Imports -----
 from core.config import (
+    COLOR_DARK_BLUE,
     COLOR_ORANGE,
     FONT_FAMILY,
     FONT_SIZE_STAT,
@@ -791,7 +792,7 @@ class SettingsDialog(QDialog):
             }}
             QPushButton:hover {{
                 background-color: rgba(247, 118, 142, 0.2);
-                border: 1px solid #f7768e;
+                border-bottom: 2px solid #f7768e;
             }}
             QPushButton:pressed {{
                 background-color: rgba(247, 118, 142, 0.3);
@@ -821,7 +822,7 @@ class SettingsDialog(QDialog):
             }}
             QPushButton:hover {{
                 background-color: rgba(255, 255, 255, 0.08);
-                border: 1px solid {COLOR_ORANGE};
+                border-bottom: 2px solid {COLOR_DARK_BLUE};
             }}
             QPushButton:pressed {{
                 background-color: rgba(255, 255, 255, 0.12);
@@ -854,7 +855,7 @@ class SettingsDialog(QDialog):
             }}
             QPushButton:hover {{
                 background-color: rgba(158, 206, 106, 0.3);
-                border: 1px solid #9ece6a;
+                border-bottom: 2px solid #9ece6a;
             }}
             QPushButton:pressed {{
                 background-color: rgba(158, 206, 106, 0.4);

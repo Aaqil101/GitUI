@@ -85,59 +85,87 @@ def create_power_options_panel(parent=None) -> tuple[QWidget, PowerOptionsSignal
     countdown_label.setWordWrap(True)
     layout.addWidget(countdown_label)
 
-    # Buttons layout - 2x2 grid
-    buttons_layout = QVBoxLayout()
-    buttons_layout.setSpacing(8)
-
-    # Row 1: Shutdown and Restart
-    row1 = QHBoxLayout()
-    row1.setSpacing(8)
-
+    # Buttons layout - horizontal for icon-only, 2x2 grid for text
     if icon_only:
+        # Horizontal single line for icons
+        buttons_layout = QHBoxLayout()
+        buttons_layout.setSpacing(8)
+
         shutdown_btn: QPushButton = _create_icon_button(Icons.SHUTDOWN, "#EF4444")
-    else:
-        shutdown_btn: QPushButton = _create_text_button("Shutdown", "#EF4444")
-    shutdown_btn.setToolTip(
-        "Commits with 'Shutdown commit by...', pushes, then shuts down system"
-    )
-    row1.addWidget(shutdown_btn)
+        shutdown_btn.setToolTip(
+            "Commits with 'Shutdown commit by...', pushes, then shuts down system"
+        )
+        buttons_layout.addWidget(shutdown_btn)
 
-    if icon_only:
         restart_btn: QPushButton = _create_icon_button(Icons.RESTART, "#3B82F6")
+        restart_btn.setToolTip(
+            "Commits with 'Restart commit by...', pushes, then restarts system"
+        )
+        buttons_layout.addWidget(restart_btn)
+
+        shutdown_cancel_btn: QPushButton = _create_icon_button(
+            f"{Icons.SHUTDOWN} {Icons.CANCEL}", "#F59E0B"
+        )
+        shutdown_cancel_btn.setToolTip(
+            "Commits with 'Shutdown (Cancelled) commit by...', pushes, NO system action"
+        )
+        buttons_layout.addWidget(shutdown_cancel_btn)
+
+        restart_cancel_btn: QPushButton = _create_icon_button(
+            f"{Icons.RESTART} {Icons.CANCEL}", "#10B981"
+        )
+        restart_cancel_btn.setToolTip(
+            "Commits with 'Restart (Cancelled) commit by...', pushes, NO system action"
+        )
+        buttons_layout.addWidget(restart_cancel_btn)
+
+        layout.addLayout(buttons_layout)
     else:
+        # 2x2 grid for text buttons
+        buttons_layout = QVBoxLayout()
+        buttons_layout.setSpacing(8)
+
+        # Row 1: Shutdown and Restart
+        row1 = QHBoxLayout()
+        row1.setSpacing(8)
+
+        shutdown_btn: QPushButton = _create_text_button("Shutdown", "#EF4444")
+        shutdown_btn.setToolTip(
+            "Commits with 'Shutdown commit by...', pushes, then shuts down system"
+        )
+        row1.addWidget(shutdown_btn)
+
         restart_btn: QPushButton = _create_text_button("Restart", "#3B82F6")
-    restart_btn.setToolTip(
-        "Commits with 'Restart commit by...', pushes, then restarts system"
-    )
-    row1.addWidget(restart_btn)
+        restart_btn.setToolTip(
+            "Commits with 'Restart commit by...', pushes, then restarts system"
+        )
+        row1.addWidget(restart_btn)
 
-    buttons_layout.addLayout(row1)
+        buttons_layout.addLayout(row1)
 
-    # Row 2: Shutdown (Cancel) and Restart (Cancel)
-    row2 = QHBoxLayout()
-    row2.setSpacing(8)
+        # Row 2: Shutdown (Cancel) and Restart (Cancel)
+        row2 = QHBoxLayout()
+        row2.setSpacing(8)
 
-    if icon_only:
-        shutdown_cancel_btn: QPushButton = _create_icon_button(f"{Icons.SHUTDOWN} {Icons.CANCEL}", "#F59E0B")
-    else:
-        shutdown_cancel_btn: QPushButton = _create_text_button("Shutdown (Cancel)", "#F59E0B")
-    shutdown_cancel_btn.setToolTip(
-        "Commits with 'Shutdown (Cancelled) commit by...', pushes, NO system action"
-    )
-    row2.addWidget(shutdown_cancel_btn)
+        shutdown_cancel_btn: QPushButton = _create_text_button(
+            "Shutdown (Cancel)", "#F59E0B"
+        )
+        shutdown_cancel_btn.setToolTip(
+            "Commits with 'Shutdown (Cancelled) commit by...', pushes, NO system action"
+        )
+        row2.addWidget(shutdown_cancel_btn)
 
-    if icon_only:
-        restart_cancel_btn: QPushButton = _create_icon_button(f"{Icons.RESTART} {Icons.CANCEL}", "#10B981")
-    else:
-        restart_cancel_btn: QPushButton = _create_text_button("Restart (Cancel)", "#10B981")
-    restart_cancel_btn.setToolTip(
-        "Commits with 'Restart (Cancelled) commit by...', pushes, NO system action"
-    )
-    row2.addWidget(restart_cancel_btn)
+        restart_cancel_btn: QPushButton = _create_text_button(
+            "Restart (Cancel)", "#10B981"
+        )
+        restart_cancel_btn.setToolTip(
+            "Commits with 'Restart (Cancelled) commit by...', pushes, NO system action"
+        )
+        row2.addWidget(restart_cancel_btn)
 
-    buttons_layout.addLayout(row2)
+        buttons_layout.addLayout(row2)
 
-    layout.addLayout(buttons_layout)
+        layout.addLayout(buttons_layout)
 
     # Store references and state in widget
     widget.countdown_label = countdown_label
@@ -179,7 +207,9 @@ def _create_icon_button(icon: str, color: str) -> QPushButton:
     """
     button = QPushButton(icon)
     button.setFixedHeight(40)
-    button.setFont(QFont(FONT_FAMILY, 18, QFont.Weight.Bold))  # Large font for icon visibility
+    button.setFont(
+        QFont(FONT_FAMILY, 18, QFont.Weight.Bold)
+    )  # Large font for icon visibility
     button.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
 
     # Clean button style matching settings button
@@ -189,9 +219,10 @@ def _create_icon_button(icon: str, color: str) -> QPushButton:
             background-color: rgba(255, 255, 255, 0.04);
             color: rgba(255, 255, 255, 0.9);
             font-weight: bold;
-            padding: 4px;
+            padding: 4px 8px;
             border: none;
             border-radius: 6px;
+            white-space: nowrap;
         }}
         QPushButton:hover {{
             background-color: rgba(255, 255, 255, 0.08);
@@ -223,7 +254,9 @@ def _create_text_button(text: str, color: str) -> QPushButton:
     """
     button = QPushButton(text)
     button.setFixedHeight(40)
-    button.setFont(QFont(FONT_FAMILY, FONT_SIZE_STAT, QFont.Weight.Bold))  # Normal font for text
+    button.setFont(
+        QFont(FONT_FAMILY, FONT_SIZE_STAT, QFont.Weight.Bold)
+    )  # Normal font for text
     button.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
 
     # Clean button style matching settings button
