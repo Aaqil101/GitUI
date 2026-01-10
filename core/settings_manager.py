@@ -151,6 +151,7 @@ class SettingsManager:
                 "operation_timeout": 60,
                 "power_countdown_seconds": 5,
                 "exclude_confirmation_timeout": 10,
+                "exclude_repos_affect_pull": False,
             },
             "appearance": {
                 "font_family": "JetBrainsMono Nerd Font",
@@ -160,6 +161,7 @@ class SettingsManager:
                 "font_size_stat": 10,
                 "enable_animations": True,
                 "animation_duration": 300,
+                "power_buttons_icon_only": True,
             },
             "advanced": {
                 "test_mode_default": False,

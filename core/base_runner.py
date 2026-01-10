@@ -25,9 +25,9 @@ from core.config import (
     ANIMATION_INTERVAL,
     BUTTON_HEIGHT,
     CARD_AREA_PADDING,
-    COLOR_BLUE,
     COLOR_CYAN,
     COLOR_GREEN,
+    COLOR_LIGHT_BLUE,
     FONT_FAMILY,
     FONT_SIZE_HEADER,
     FONT_SIZE_ICON,
@@ -219,7 +219,7 @@ class BaseGitRunner(InternetChecker, QWidget, metaclass=CombinedMeta):
         # Header
         header = QLabel(f"{Icons.FILES}  {self.config['header_text']}")
         header.setFont(QFont(FONT_FAMILY, FONT_SIZE_HEADER, QFont.Weight.Bold))
-        header.setStyleSheet(f"color: {COLOR_BLUE}; padding: 4px 0;")
+        header.setStyleSheet(f"color: {COLOR_LIGHT_BLUE}; padding: 4px 0;")
         header.setFixedHeight(32)
         right_panel.addWidget(header)
 
@@ -358,12 +358,12 @@ class BaseGitRunner(InternetChecker, QWidget, metaclass=CombinedMeta):
         row2.setContentsMargins(0, 0, 0, 0)
 
         self.folder_icon = create_icon_label(
-            Icons.FOLDER_OPEN, FONT_SIZE_ICON, COLOR_BLUE, fixed_size=(28, 28)
+            Icons.FOLDER_OPEN, FONT_SIZE_ICON, COLOR_LIGHT_BLUE, fixed_size=(28, 28)
         )
         row2.addWidget(self.folder_icon)
 
         self.progress_label = create_text_label(
-            "0/0", FONT_SIZE_LABEL, COLOR_BLUE, bold=True, fixed_width=50
+            "0/0", FONT_SIZE_LABEL, COLOR_LIGHT_BLUE, bold=True, fixed_width=50
         )
         row2.addWidget(self.progress_label)
 
@@ -382,7 +382,7 @@ class BaseGitRunner(InternetChecker, QWidget, metaclass=CombinedMeta):
         summary_layout.setSpacing(20)
 
         self.summary_repos = create_text_label(
-            f"{Icons.GIT_BRANCH} 0 repos", FONT_SIZE_STAT, COLOR_BLUE
+            f"{Icons.GIT_BRANCH} 0 repos", FONT_SIZE_STAT, COLOR_LIGHT_BLUE
         )
         summary_layout.addWidget(self.summary_repos)
 
@@ -468,7 +468,7 @@ class BaseGitRunner(InternetChecker, QWidget, metaclass=CombinedMeta):
         # Stats
         stat_labels = self.config["stat_labels"]
         self.stat_scanned = create_stat_row(
-            Icons.FOLDER_OPEN, "Repositories Scanned", "0", COLOR_BLUE
+            Icons.FOLDER_OPEN, "Repositories Scanned", "0", COLOR_LIGHT_BLUE
         )
         self.stat_behind = create_stat_row(
             Icons.GIT_BRANCH, stat_labels["repos"], "0", "#e0af68"

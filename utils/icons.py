@@ -25,8 +25,9 @@ class Icons:
     SYNC: str = "\uf46a"  # 
 
     # Files & Folders
-    FOLDER: str = "\uf07b"  # 
-    FOLDER_OPEN: str = "\uf07c"  # 
+    FOLDER_OUTLINE: str = "\U000f0256"  # 󰉖
+    FOLDER: str = "\U000f024b"  # 󰉋
+    FOLDER_OPEN: str = "\U000f0770"  # 󰝰
     FILE: str = "\uf15b"  # 
     FILES: str = "\uf0c5"  # 
 
@@ -34,11 +35,12 @@ class Icons:
     CLOCK: str = "\uf017"  # 
     COG: str = "\uf013"  # 
     DOWNLOAD: str = "\uf019"  # 
-    UPLOAD: str = "\uf093"  #
-    POWER: str = "\uf011"  # 
+    UPLOAD: str = "\uf093"  # 
+    POWER: str = "\uf011"  # 
     RESTART: str = "\uead2"  # 
     SHUTDOWN: str = "\uf011"  # 
-    CANCEL: str = "\udb81\udf3a"  # 󰜺
+    CANCEL: str = "\udb85\udf4b"  # 󱝋
+    CANCEL_OUTLINE: str = "\udb85\udf4c"  # 󱝌
 
     SETTINGS: str = "\ueb51"  # 
     WINDOW: str = "\uf2d0"  # 
@@ -52,6 +54,8 @@ class Icons:
     STARTUP: str = "\uf04b"  # 
     STARTUP_ROCKET = "\uf135"  # 
     SAVE: str = "\uf0c7"  # 
+    CONTENT_SAVE: str = "\udb80\udd93"  # 󰆓
+    CONTENT_SAVE_CHECK: str = "\udb86\udcea"  # 󱣪
     ADD: str = "\uea60"  # 
     TRASH: str = "\uea81"  # 
     SKIP: str = "\uf517"  # 

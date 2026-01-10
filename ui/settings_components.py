@@ -1,5 +1,5 @@
 # ----- PyQt6 Modules -----
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import QEvent, Qt
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (
     QCheckBox,
@@ -17,6 +17,7 @@ from PyQt6.QtWidgets import (
 
 # ----- Config Imports -----
 from core.config import (
+    COLOR_DARK_BLUE,
     COLOR_ORANGE,
     FONT_FAMILY,
     FONT_SIZE_LABEL,
@@ -27,6 +28,93 @@ from core.config import (
 
 # ----- Utils Imports -----
 from utils.icons import Icons
+
+
+# ══════════════════════════════════════════════════════════════════
+# CUSTOM BUTTON CLASSES
+# ══════════════════════════════════════════════════════════════════
+class HoverIconButton(QPushButton):
+    """QPushButton subclass that changes icon on hover and press states.
+
+    This button displays different icons based on user interaction:
+    - Normal state: Shows normal_icon
+    - Hover state: Shows hover_icon
+    - Pressed state: Shows pressed_icon (if provided, otherwise uses hover_icon)
+
+    Args:
+        normal_icon: Icon to display in normal state
+        hover_icon: Icon to display on hover
+        pressed_icon: Optional icon to display when pressed (defaults to hover_icon)
+        text: Button text (default: empty string)
+        parent: Parent widget (default: None)
+    """
+
+    def __init__(
+        self,
+        normal_icon: str,
+        hover_icon: str,
+        pressed_icon: str = "",
+        text: str = "",
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(text, parent)
+        self.normal_icon: str = normal_icon
+        self.hover_icon: str = hover_icon
+        self.pressed_icon: str = pressed_icon if pressed_icon else hover_icon
+        self._is_hovered = False
+        self._is_pressed = False
+
+        # Set initial text with normal icon
+        self._update_text()
+
+        # Connect pressed/released signals for click state tracking
+        self.pressed.connect(self._on_pressed)
+        self.released.connect(self._on_released)
+
+    def _update_text(self) -> None:
+        """Update button text based on current state."""
+        # Extract text without icon (text after " " if present)
+        text_parts: list[str] = self.text().split(" ", 1)
+        label_text: str = text_parts[1] if len(text_parts) > 1 else text_parts[0]
+
+        # Determine which icon to show
+        if self._is_pressed:
+            icon: str = self.pressed_icon
+        elif self._is_hovered:
+            icon: str = self.hover_icon
+        else:
+            icon: str = self.normal_icon
+
+        # Set text with icon (only if we have label text)
+        if label_text and not label_text.startswith(
+            (self.normal_icon, self.hover_icon, self.pressed_icon)
+        ):
+            self.setText(f"{icon} {label_text}")
+        else:
+            self.setText(icon)
+
+    def enterEvent(self, event: QEvent) -> None:
+        """Handle mouse enter event."""
+        self._is_hovered = True
+        self._update_text()
+        super().enterEvent(event)
+
+    def leaveEvent(self, event: QEvent) -> None:
+        """Handle mouse leave event."""
+        self._is_hovered = False
+        self._is_pressed = False  # Reset pressed state when leaving
+        self._update_text()
+        super().leaveEvent(event)
+
+    def _on_pressed(self) -> None:
+        """Handle button pressed signal."""
+        self._is_pressed = True
+        self._update_text()
+
+    def _on_released(self) -> None:
+        """Handle button released signal."""
+        self._is_pressed = False
+        self._update_text()
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -44,13 +132,13 @@ def create_settings_section(title: str, icon: str = "") -> QWidget:
     """
     widget = QWidget()
     layout = QHBoxLayout(widget)
-    layout.setContentsMargins(0, 12, 0, 8)
+    layout.setContentsMargins(0, 8, 0, 4)  # Reduced from 12, 8
     layout.setSpacing(8)
 
     # Icon (if provided)
     if icon:
         icon_label = QLabel(icon)
-        icon_label.setFont(QFont(FONT_FAMILY, FONT_SIZE_LABEL + 2))
+        icon_label.setFont(QFont(FONT_FAMILY, 18))  # Larger icon size
         icon_label.setStyleSheet(f"color: {COLOR_ORANGE}; padding: 0;")
         layout.addWidget(icon_label)
 
@@ -81,8 +169,8 @@ def create_path_selector(label: str, value: str, callback) -> tuple[QWidget, QLi
     """
     widget = QWidget()
     layout = QVBoxLayout(widget)
-    layout.setContentsMargins(0, 4, 0, 4)
-    layout.setSpacing(6)
+    layout.setContentsMargins(0, 2, 0, 2)  # Reduced from 4, 4
+    layout.setSpacing(4)  # Reduced from 6
 
     # Label
     label_widget = QLabel(label)
@@ -104,12 +192,15 @@ def create_path_selector(label: str, value: str, callback) -> tuple[QWidget, QLi
         QLineEdit {{
             background-color: rgba(255, 255, 255, 0.04);
             color: {THEME_TEXT_PRIMARY};
-            border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 4px;
             padding: 6px 10px;
+            border: 2px solid transparent;
         }}
         QLineEdit:focus {{
-            border: 1px solid {COLOR_ORANGE};
+            background-color: #222;
+            border-bottom: 2px solid {COLOR_DARK_BLUE};
+            border-right: 2px solid {COLOR_DARK_BLUE};
+            font-style: unset;
         }}
         """
     )
@@ -117,7 +208,12 @@ def create_path_selector(label: str, value: str, callback) -> tuple[QWidget, QLi
     path_layout.addWidget(line_edit, 1)
 
     # Browse button
-    browse_btn = QPushButton(f"{Icons.FOLDER}  Browse")
+    browse_btn = HoverIconButton(
+        normal_icon=Icons.FOLDER_OUTLINE,
+        hover_icon=Icons.FOLDER,
+        pressed_icon=Icons.FOLDER_OPEN,
+        text="Browse",
+    )
     browse_btn.setFont(QFont(FONT_FAMILY, FONT_SIZE_STAT))
     browse_btn.setFixedHeight(32)
     browse_btn.setStyleSheet(
@@ -125,13 +221,12 @@ def create_path_selector(label: str, value: str, callback) -> tuple[QWidget, QLi
         QPushButton {{
             background-color: rgba(255, 255, 255, 0.04);
             color: {THEME_TEXT_PRIMARY};
-            border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 4px;
             padding: 4px 12px;
         }}
         QPushButton:hover {{
             background-color: rgba(255, 255, 255, 0.08);
-            border: 1px solid {COLOR_ORANGE};
+            border-bottom: 2px solid {COLOR_DARK_BLUE};
         }}
         QPushButton:pressed {{
             background-color: rgba(255, 255, 255, 0.12);
@@ -198,7 +293,7 @@ def create_spinbox_row(
     spinbox.setFont(QFont(FONT_FAMILY, FONT_SIZE_STAT))
     spinbox.setRange(min_val, max_val)
     spinbox.setValue(value)
-    spinbox.setFixedWidth(100)
+    spinbox.setFixedWidth(150)
     if suffix:
         spinbox.setSuffix(f" {suffix}")
     spinbox.setStyleSheet(
@@ -206,7 +301,6 @@ def create_spinbox_row(
         QSpinBox {{
             background-color: rgba(255, 255, 255, 0.04);
             color: {THEME_TEXT_PRIMARY};
-            border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 4px;
             padding: 4px 8px;
         }}
@@ -265,15 +359,22 @@ def create_checkbox_row(
         QCheckBox {{
             color: {THEME_TEXT_SECONDARY};
             spacing: 8px;
+            padding: 4px;
+            border-radius: 4px;
+        }}
+        QCheckBox:hover {{
+            background-color: rgba(255, 158, 100, 0.08);
+            color: {THEME_TEXT_PRIMARY};
         }}
         QCheckBox::indicator {{
             width: 18px;
             height: 18px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
             border-radius: 3px;
             background-color: rgba(255, 255, 255, 0.04);
+            border: 1px solid transparent;
         }}
         QCheckBox::indicator:checked {{
+            image: url(assets/Check.png);
             background-color: {COLOR_ORANGE};
             border: 1px solid {COLOR_ORANGE};
         }}
@@ -335,8 +436,8 @@ def create_list_manager(
     """
     widget = QWidget()
     layout = QVBoxLayout(widget)
-    layout.setContentsMargins(0, 4, 0, 4)
-    layout.setSpacing(6)
+    layout.setContentsMargins(0, 2, 0, 2)  # Reduced from 4, 4
+    layout.setSpacing(4)  # Reduced from 6
 
     # Title
     title_label = QLabel(title)
@@ -354,7 +455,6 @@ def create_list_manager(
         QListWidget {{
             background-color: rgba(255, 255, 255, 0.04);
             color: {THEME_TEXT_PRIMARY};
-            border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 4px;
             padding: 4px;
         }}
@@ -364,7 +464,6 @@ def create_list_manager(
         }}
         QListWidget::item:selected {{
             background-color: rgba(122, 162, 247, 0.3);
-            border: 1px solid rgba(122, 162, 247, 0.5);
         }}
         QListWidget::item:hover {{
             background-color: rgba(255, 255, 255, 0.06);
@@ -394,7 +493,6 @@ def create_list_manager(
         QPushButton {{
             background-color: rgba(255, 255, 255, 0.04);
             color: {THEME_TEXT_PRIMARY};
-            border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 4px;
             padding: 4px 12px;
         }}

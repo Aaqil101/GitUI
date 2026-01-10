@@ -21,7 +21,8 @@ THEME_TEXT_DIM = "#565f89"
 THEME_BORDER = "#414868"
 
 # Color Accents
-COLOR_BLUE = "#7aa2f7"
+COLOR_LIGHT_BLUE = "#7aa2f7"
+COLOR_DARK_BLUE = "#0078d7"
 COLOR_CYAN = "#7dcfff"
 COLOR_GREEN = "#9ece6a"
 COLOR_YELLOW = "#e0af68"
@@ -106,16 +107,17 @@ def get_default_paths() -> dict[str, Path]:
     Note: The 'github' path is now username-specific via GitHubPathManager.
     """
     from core.github_path_manager import GitHubPathManager
+    from utils.resources import get_resource_path
 
     script_dir: Path = Path(__file__).resolve().parent.parent
     github_path_manager = GitHubPathManager()
 
     return {
         "script_dir": script_dir,
-        "assets": script_dir / "assets",
+        "assets": get_resource_path("assets"),
         "github": github_path_manager.get_github_path(),
-        "msg_icon": script_dir / "assets" / "Message.ico",
-        "app_icon": script_dir / "assets" / "Git.ico",
+        "msg_icon": get_resource_path("assets/Message.ico"),
+        "app_icon": get_resource_path("assets/Git.ico"),
     }
 
 

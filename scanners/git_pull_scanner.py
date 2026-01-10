@@ -42,21 +42,39 @@ class PowerShellScannerWorker(BaseScannerWorker):
         """Return the PowerShell command to execute."""
         # Get all scan paths (GitHub + custom)
         from core.custom_paths_manager import CustomPathsManager
+        from core.exclude_manager import ExcludeManager
+        from core.settings_manager import SettingsManager
 
         custom_paths_mgr = CustomPathsManager()
         all_paths = custom_paths_mgr.get_all_scan_paths()
 
+        # Check if exclusions should affect pull
+        settings_mgr = SettingsManager()
+        settings = settings_mgr.get_settings()
+        exclude_affect_pull = settings.get("git_operations", {}).get("exclude_repos_affect_pull", False)
+
+        # Get excluded repos if setting is enabled
+        excluded_repos = []
+        if exclude_affect_pull:
+            exclude_mgr = ExcludeManager()
+            excluded_repos = exclude_mgr.get_excluded_repos()
+
         # Build PowerShell array of paths
         paths_array = ", ".join([f'"{p}"' for p in all_paths])
 
+        # Build PowerShell array of excluded repos
+        excluded_array = ", ".join([f'"{repo}"' for repo in excluded_repos])
+
         return f"""
             $scanPaths = @({paths_array})
+            $excludedRepos = @({excluded_array})
 
             # Pre-filter git repos from all scan paths
             $repositories = $scanPaths | ForEach-Object {{
                 if (Test-Path $_) {{
                     Get-ChildItem -Path $_ -Directory -ErrorAction SilentlyContinue |
-                        Where-Object {{ Test-Path "$($_.FullName)\\.git" }}
+                        Where-Object {{ Test-Path "$($_.FullName)\\.git" }} |
+                        Where-Object {{ $excludedRepos.Count -eq 0 -or $_.Name -notin $excludedRepos }}
                 }}
             }}
 

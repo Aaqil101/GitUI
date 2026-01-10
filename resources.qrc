@@ -1,0 +1,10 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+    <qresource prefix="/icons">
+        <file>assets/Check.png</file>
+        <file>assets/Git.ico</file>
+        <file>assets/Git.png</file>
+        <file>assets/Message.ico</file>
+        <file>assets/Message.png</file>
+    </qresource>
+</RCC>

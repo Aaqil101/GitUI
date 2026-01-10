@@ -37,6 +37,7 @@ from core.settings_manager import SettingsManager
 
 # ----- UI Component Imports -----
 from ui.settings_components import (
+    HoverIconButton,
     create_checkbox_row,
     create_list_manager,
     create_path_selector,
@@ -238,6 +239,33 @@ class SettingsDialog(QDialog):
         # Center dialog on screen
         position_center(self)
 
+    def _create_tab_label_widget(self, icon: str, text: str) -> QWidget:
+        """Create a custom tab label widget with larger icon.
+
+        Args:
+            icon: Icon character
+            text: Tab text
+
+        Returns:
+            QWidget: Tab label widget with separate icon and text
+        """
+        widget = QWidget()
+        layout = QHBoxLayout(widget)
+        layout.setContentsMargins(8, 4, 8, 4)
+        layout.setSpacing(8)
+
+        # Icon label with larger font
+        icon_label = QLabel(icon)
+        icon_label.setFont(QFont(FONT_FAMILY, 16))
+        layout.addWidget(icon_label)
+
+        # Text label with normal font
+        text_label = QLabel(text)
+        text_label.setFont(QFont(FONT_FAMILY, FONT_SIZE_STAT))
+        layout.addWidget(text_label)
+
+        return widget
+
     def _create_tab_widget(self) -> QTabWidget:
         """Create the tab widget with settings pages.
 
@@ -257,7 +285,7 @@ class SettingsDialog(QDialog):
             QTabBar::tab {{
                 background-color: {THEME_BG_SECONDARY};
                 color: {THEME_TEXT_SECONDARY};
-                padding: 12px 24px;
+                padding: 8px 16px;
                 margin-right: 2px;
                 font-weight: normal;
             }}
@@ -275,17 +303,34 @@ class SettingsDialog(QDialog):
             """
         )
 
-        # Add tabs with icons
-        tab_widget.addTab(self._create_general_page(), f"{Icons.FOLDER}  General")
-        tab_widget.addTab(self._create_git_ops_page(), f"{Icons.GIT}  Git Operations")
-        tab_widget.addTab(
-            self._create_appearance_page(), f"{Icons.PALETTE}  Appearance"
+        # Add tabs with custom widgets for larger icons
+        idx = tab_widget.addTab(self._create_general_page(), "")
+        tab_widget.tabBar().setTabButton(
+            idx,
+            tab_widget.tabBar().ButtonPosition.LeftSide,
+            self._create_tab_label_widget(Icons.FOLDER, "General"),
         )
-        tab_widget.addTab(self._create_advanced_page(), f"{Icons.ADVANCED}  Advanced")
-        tab_widget.addTab(
-            self._create_appearance_page(), f"{Icons.PALETTE}  Appearance"
+
+        idx = tab_widget.addTab(self._create_git_ops_page(), "")
+        tab_widget.tabBar().setTabButton(
+            idx,
+            tab_widget.tabBar().ButtonPosition.LeftSide,
+            self._create_tab_label_widget(Icons.GIT, "Git Operations"),
         )
-        tab_widget.addTab(self._create_advanced_page(), f"{Icons.ADVANCED}  Advanced")
+
+        idx = tab_widget.addTab(self._create_appearance_page(), "")
+        tab_widget.tabBar().setTabButton(
+            idx,
+            tab_widget.tabBar().ButtonPosition.LeftSide,
+            self._create_tab_label_widget(Icons.PALETTE, "Appearance"),
+        )
+
+        idx = tab_widget.addTab(self._create_advanced_page(), "")
+        tab_widget.tabBar().setTabButton(
+            idx,
+            tab_widget.tabBar().ButtonPosition.LeftSide,
+            self._create_tab_label_widget(Icons.ADVANCED, "Advanced"),
+        )
 
         return tab_widget
 
@@ -303,8 +348,8 @@ class SettingsDialog(QDialog):
         content = QWidget()
         content.setStyleSheet(f"background-color: {THEME_BG_PRIMARY};")
         layout = QVBoxLayout(content)
-        layout.setSpacing(20)
-        layout.setContentsMargins(24, 20, 24, 20)
+        layout.setSpacing(12)  # Reduced from 20
+        layout.setContentsMargins(20, 16, 20, 16)  # Reduced from 24, 20, 24, 20
 
         # Repository Paths Section
         layout.addWidget(create_settings_section("Repository Paths", Icons.FOLDER))
@@ -462,8 +507,8 @@ class SettingsDialog(QDialog):
         content = QWidget()
         content.setStyleSheet(f"background-color: {THEME_BG_PRIMARY};")
         layout = QVBoxLayout(content)
-        layout.setSpacing(20)
-        layout.setContentsMargins(24, 20, 24, 20)
+        layout.setSpacing(12)  # Reduced from 20
+        layout.setContentsMargins(20, 16, 20, 16)  # Reduced from 24, 20, 24, 20
 
         # Performance Section
         layout.addWidget(create_settings_section("Performance", Icons.PERFORMANCE))
@@ -516,6 +561,19 @@ class SettingsDialog(QDialog):
         self.ui_components["power_countdown"] = power_countdown_spin
         layout.addWidget(power_countdown_widget)
 
+        # Repository Exclusions Section
+        layout.addWidget(
+            create_settings_section("Repository Exclusions", Icons.EXCLUDE)
+        )
+
+        exclude_pull_widget, exclude_pull_check = create_checkbox_row(
+            "Apply Exclusions to Git Pull",
+            self.current_settings["git_operations"]["exclude_repos_affect_pull"],
+            "If enabled, excluded repositories will be skipped during Git Pull operations",
+        )
+        self.ui_components["exclude_repos_affect_pull"] = exclude_pull_check
+        layout.addWidget(exclude_pull_widget)
+
         layout.addStretch()
 
         scroll.setWidget(content)
@@ -535,8 +593,8 @@ class SettingsDialog(QDialog):
         content = QWidget()
         content.setStyleSheet(f"background-color: {THEME_BG_PRIMARY};")
         layout = QVBoxLayout(content)
-        layout.setSpacing(20)
-        layout.setContentsMargins(24, 20, 24, 20)
+        layout.setSpacing(12)  # Reduced from 20
+        layout.setContentsMargins(20, 16, 20, 16)  # Reduced from 24, 20, 24, 20
 
         # Font Configuration Section
         layout.addWidget(create_settings_section("Font Configuration", Icons.FONT))
@@ -624,6 +682,17 @@ class SettingsDialog(QDialog):
         self.ui_components["animation_duration"] = anim_duration_spin
         layout.addWidget(anim_duration_widget)
 
+        # Power Options Section
+        layout.addWidget(create_settings_section("Power Options", Icons.POWER))
+
+        icon_only_widget, icon_only_check = create_checkbox_row(
+            "Icon-Only Power Buttons",
+            self.current_settings["appearance"]["power_buttons_icon_only"],
+            "Show only icons in power buttons (Git Push). Uncheck to show icon + text.",
+        )
+        self.ui_components["power_buttons_icon_only"] = icon_only_check
+        layout.addWidget(icon_only_widget)
+
         layout.addStretch()
 
         scroll.setWidget(content)
@@ -643,8 +712,8 @@ class SettingsDialog(QDialog):
         content = QWidget()
         content.setStyleSheet(f"background-color: {THEME_BG_PRIMARY};")
         layout = QVBoxLayout(content)
-        layout.setSpacing(20)
-        layout.setContentsMargins(24, 20, 24, 20)
+        layout.setSpacing(12)  # Reduced from 20
+        layout.setContentsMargins(20, 16, 20, 16)  # Reduced from 24, 20, 24, 20
 
         # Startup Section
         layout.addWidget(create_settings_section("Startup", Icons.STARTUP))
@@ -735,7 +804,9 @@ class SettingsDialog(QDialog):
         layout.addStretch()
 
         # Cancel button
-        cancel_btn = QPushButton(f"{Icons.CANCEL}  Cancel")
+        cancel_btn = HoverIconButton(
+            normal_icon=Icons.CANCEL_OUTLINE, hover_icon=Icons.CANCEL, text="CANCEL"
+        )
         cancel_btn.setFont(QFont(FONT_FAMILY, FONT_SIZE_STAT))
         cancel_btn.setFixedHeight(36)
         cancel_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
@@ -757,11 +828,17 @@ class SettingsDialog(QDialog):
             }}
             """
         )
+
         cancel_btn.clicked.connect(self._on_cancel_clicked)
         layout.addWidget(cancel_btn)
 
         # Save button
-        save_btn = QPushButton(f"{Icons.SAVE}  Save")
+        save_btn = HoverIconButton(
+            normal_icon=Icons.SAVE,
+            hover_icon=Icons.CONTENT_SAVE,
+            pressed_icon=Icons.CONTENT_SAVE_CHECK,
+            text="Save",
+        )
         save_btn.setFont(QFont(FONT_FAMILY, FONT_SIZE_STAT))
         save_btn.setFixedHeight(36)
         save_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
@@ -784,6 +861,7 @@ class SettingsDialog(QDialog):
             }}
             """
         )
+
         save_btn.clicked.connect(self._on_save_clicked)
         layout.addWidget(save_btn)
 
@@ -933,6 +1011,9 @@ class SettingsDialog(QDialog):
         self.current_settings["git_operations"]["exclude_confirmation_timeout"] = (
             self.ui_components["exclude_timeout"].value()
         )
+        self.current_settings["git_operations"]["exclude_repos_affect_pull"] = (
+            self.ui_components["exclude_repos_affect_pull"].isChecked()
+        )
 
         self.current_settings["appearance"]["font_family"] = self.ui_components[
             "font_family"
@@ -955,6 +1036,9 @@ class SettingsDialog(QDialog):
         self.current_settings["appearance"]["animation_duration"] = self.ui_components[
             "animation_duration"
         ].value()
+        self.current_settings["appearance"]["power_buttons_icon_only"] = (
+            self.ui_components["power_buttons_icon_only"].isChecked()
+        )
 
         self.current_settings["advanced"]["test_mode_default"] = self.ui_components[
             "test_mode_default"

@@ -11,6 +11,9 @@ from core.config import (
     STATS_PANEL_PADDING,
 )
 
+# ----- Manager Imports -----
+from core.settings_manager import SettingsManager
+
 # ----- Style Imports -----
 from ui.styles import PANEL_STYLE
 
@@ -37,6 +40,11 @@ def create_power_options_panel(parent=None) -> tuple[QWidget, PowerOptionsSignal
     # Create signals object
     signals = PowerOptionsSignals()
 
+    # Get icon-only setting
+    settings_manager = SettingsManager()
+    settings = settings_manager.get_settings()
+    icon_only = settings.get("appearance", {}).get("power_buttons_icon_only", True)
+
     # Create panel widget
     widget = QWidget(parent)
     widget.setStyleSheet(PANEL_STYLE)
@@ -45,11 +53,28 @@ def create_power_options_panel(parent=None) -> tuple[QWidget, PowerOptionsSignal
     layout.setSpacing(12)
     layout.setContentsMargins(*STATS_PANEL_PADDING)
 
-    # Title
-    title = QLabel(f"{Icons.POWER}  Power Options")
-    title.setFont(QFont(FONT_FAMILY, 13, QFont.Weight.Bold))
-    title.setStyleSheet("color: white; padding: 0;")
-    layout.addWidget(title)
+    # Title with larger icon
+    title_layout = QHBoxLayout()
+    title_layout.setSpacing(8)
+    title_layout.setContentsMargins(0, 0, 0, 0)
+
+    # Icon label
+    icon_label = QLabel(Icons.POWER)
+    icon_label.setFont(QFont(FONT_FAMILY, 18))  # Larger icon size
+    icon_label.setStyleSheet("color: white; padding: 0;")
+    title_layout.addWidget(icon_label)
+
+    # Title text
+    title_text = QLabel("Power Options")
+    title_text.setFont(QFont(FONT_FAMILY, 13, QFont.Weight.Bold))
+    title_text.setStyleSheet("color: white; padding: 0;")
+    title_layout.addWidget(title_text)
+
+    title_layout.addStretch()
+
+    title_widget = QWidget()
+    title_widget.setLayout(title_layout)
+    layout.addWidget(title_widget)
 
     # Countdown label
     countdown_label = QLabel(
@@ -68,17 +93,19 @@ def create_power_options_panel(parent=None) -> tuple[QWidget, PowerOptionsSignal
     row1 = QHBoxLayout()
     row1.setSpacing(8)
 
-    shutdown_btn: QPushButton = _create_power_button(
-        f"{Icons.SHUTDOWN} Shutdown", "#EF4444"
-    )
+    if icon_only:
+        shutdown_btn: QPushButton = _create_icon_button(Icons.SHUTDOWN, "#EF4444")
+    else:
+        shutdown_btn: QPushButton = _create_text_button("Shutdown", "#EF4444")
     shutdown_btn.setToolTip(
         "Commits with 'Shutdown commit by...', pushes, then shuts down system"
     )
     row1.addWidget(shutdown_btn)
 
-    restart_btn: QPushButton = _create_power_button(
-        f"{Icons.RESTART} Restart", "#3B82F6"
-    )
+    if icon_only:
+        restart_btn: QPushButton = _create_icon_button(Icons.RESTART, "#3B82F6")
+    else:
+        restart_btn: QPushButton = _create_text_button("Restart", "#3B82F6")
     restart_btn.setToolTip(
         "Commits with 'Restart commit by...', pushes, then restarts system"
     )
@@ -90,17 +117,19 @@ def create_power_options_panel(parent=None) -> tuple[QWidget, PowerOptionsSignal
     row2 = QHBoxLayout()
     row2.setSpacing(8)
 
-    shutdown_cancel_btn: QPushButton = _create_power_button(
-        f"{Icons.SHUTDOWN} {Icons.CANCEL} ST-Cancel", "#F59E0B"
-    )
+    if icon_only:
+        shutdown_cancel_btn: QPushButton = _create_icon_button(f"{Icons.SHUTDOWN} {Icons.CANCEL}", "#F59E0B")
+    else:
+        shutdown_cancel_btn: QPushButton = _create_text_button("Shutdown (Cancel)", "#F59E0B")
     shutdown_cancel_btn.setToolTip(
         "Commits with 'Shutdown (Cancelled) commit by...', pushes, NO system action"
     )
     row2.addWidget(shutdown_cancel_btn)
 
-    restart_cancel_btn: QPushButton = _create_power_button(
-        f"{Icons.RESTART} {Icons.CANCEL} RT-Cancel", "#10B981"
-    )
+    if icon_only:
+        restart_cancel_btn: QPushButton = _create_icon_button(f"{Icons.RESTART} {Icons.CANCEL}", "#10B981")
+    else:
+        restart_cancel_btn: QPushButton = _create_text_button("Restart (Cancel)", "#10B981")
     restart_cancel_btn.setToolTip(
         "Commits with 'Restart (Cancelled) commit by...', pushes, NO system action"
     )
@@ -138,19 +167,63 @@ def create_power_options_panel(parent=None) -> tuple[QWidget, PowerOptionsSignal
     return widget, signals
 
 
-def _create_power_button(text: str, color: str) -> QPushButton:
-    """Create a modern styled power option button matching settings button style.
+def _create_icon_button(icon: str, color: str) -> QPushButton:
+    """Create a modern styled power option button with icon only.
+
+    Args:
+        icon: Icon character(s)
+        color: Button accent color for hover/press
+
+    Returns:
+        QPushButton: Styled button with large icon
+    """
+    button = QPushButton(icon)
+    button.setFixedHeight(40)
+    button.setFont(QFont(FONT_FAMILY, 18, QFont.Weight.Bold))  # Large font for icon visibility
+    button.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+
+    # Clean button style matching settings button
+    button.setStyleSheet(
+        f"""
+        QPushButton {{
+            background-color: rgba(255, 255, 255, 0.04);
+            color: rgba(255, 255, 255, 0.9);
+            font-weight: bold;
+            padding: 4px;
+            border: none;
+            border-radius: 6px;
+        }}
+        QPushButton:hover {{
+            background-color: rgba(255, 255, 255, 0.08);
+            color: {color};
+        }}
+        QPushButton:pressed {{
+            background-color: rgba(255, 255, 255, 0.15);
+            color: #ffd700;
+        }}
+        QPushButton:disabled {{
+            background-color: rgba(255, 255, 255, 0.02);
+            color: rgba(255, 255, 255, 0.3);
+        }}
+        """
+    )
+
+    return button
+
+
+def _create_text_button(text: str, color: str) -> QPushButton:
+    """Create a modern styled power option button with text only.
 
     Args:
         text: Button text
         color: Button accent color for hover/press
 
     Returns:
-        QPushButton: Styled button with clean, modern design
+        QPushButton: Styled button with text
     """
     button = QPushButton(text)
     button.setFixedHeight(40)
-    button.setFont(QFont(FONT_FAMILY, FONT_SIZE_STAT, QFont.Weight.Bold))
+    button.setFont(QFont(FONT_FAMILY, FONT_SIZE_STAT, QFont.Weight.Bold))  # Normal font for text
     button.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
 
     # Clean button style matching settings button

@@ -10,7 +10,7 @@ from ui.components import (
     create_stat_row,
     create_text_label,
 )
-from ui.power_options_panel import create_power_options_panel, PowerOptionsSignals
+from ui.power_options_panel import PowerOptionsSignals, create_power_options_panel
 from ui.styles import (
     CARD_CONTAINER_STYLE,
     HEADER_PANEL_STYLE,
