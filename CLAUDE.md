@@ -48,108 +48,144 @@ python __init__.py --settings
 
 ### Settings Window
 
-The settings dialog uses a side panel navigation + main content area layout (800x550px):
+The settings dialog uses a tab-based layout (900x600px):
 
-- **Side Panel**: Category navigation (General, Git Operations, Appearance, Advanced)
-  - **Collapsible**: Click the chevron button to collapse/expand the panel
-  - **Expanded state**: 220px wide with full category names and icons
-  - **Collapsed state**: 60px wide with icons only (text shown as tooltips on hover)
-  - **Smooth animation**: 300ms transition using InOutQuad easing
-  - **Larger icons**: 16pt font size for icons, 10pt for text (uses custom widgets with separate icon/text labels)
-- **Main Content**: Scrollable settings for selected category
-- **Buttons**: Reset to Defaults, Cancel, Save
+-   **Tab Navigation**: Category tabs with larger icons (General, Git Operations, Appearance, Advanced)
+    -   **Icons**: 16pt font size for better visibility, separate from text labels (10pt)
+    -   **Custom tab widgets**: Uses separate QLabel widgets for icons and text to achieve different font sizes
+-   **Main Content**: Scrollable settings for selected category with compact spacing
+    -   **Spacing**: 12px between sections (reduced from 20px for more compact layout)
+    -   **Margins**: 20px horizontal, 16px vertical (reduced from 24/20px)
+    -   **Component spacing**: 4px within components (reduced from 6px)
+    -   **Section headers**: 18pt icons for prominent visual hierarchy
+-   **Buttons**: Reset to Defaults, Cancel, Save
+
+**Icon Size Strategy**: The UI uses separate QLabel widgets for icons and text throughout, allowing independent font size control. This provides better visual hierarchy while maintaining readable text sizes.
 
 ### Settings Storage
 
 Settings are stored in JSON format in `%appdata%\GitUI\`:
 
-- **settings.json** - Main application settings
-- **github_paths.json** - Username-specific GitHub repository paths
-- **exclude_repositories.json** - Username-specific repository exclusions
-- **custom_repositories.json** - Username-specific custom repository paths
+-   **settings.json** - Main application settings
+-   **github_paths.json** - Username-specific GitHub repository paths
+-   **exclude_repositories.json** - Username-specific repository exclusions
+-   **custom_repositories.json** - Username-specific custom repository paths
 
 All managers use singleton patterns for consistent state management.
 
 ### Settings Categories
 
 #### General
+
 **Repository Paths:**
-- GitHub repositories folder (username-specific, default: `%userprofile%\Documents\GitHub`)
-  - Each user can have their own GitHub folder path
-  - Paths validated on save (must exist and be accessible)
-  - Changes require restart
-  - Current user displayed in settings
-- Custom repository paths (username-specific)
-  - Add additional scan locations beyond default GitHub folder
-  - Each user can have different custom paths
-  - Paths validated on addition (must exist and be accessible)
-  - Changes require restart
+
+-   GitHub repositories folder (username-specific, default: `%userprofile%\Documents\GitHub`)
+    -   Each user can have their own GitHub folder path
+    -   Paths validated on save (must exist and be accessible)
+    -   Changes require restart
+    -   Current user displayed in settings
+-   Custom repository paths (username-specific)
+    -   Add additional scan locations beyond default GitHub folder
+    -   Each user can have different custom paths
+    -   Paths validated on addition (must exist and be accessible)
+    -   Changes require restart
 
 **Repository Exclusions** (username-specific):
-- Excluded repositories list (by repository name, not path)
-- Current user display
-- Exclude confirmation timeout (1-60 seconds)
-- When excluded repo has uncommitted changes:
-  - Confirmation dialog appears with countdown timer
-  - Options: "Push Anyway", "Skip This Repo", "Cancel All"
-  - Auto-selects "Skip" if no response within timeout
-  - "Cancel All" stops all remaining push operations
+
+-   Excluded repositories list (by repository name, not path)
+-   Current user display
+-   Exclude confirmation timeout (1-60 seconds)
+-   When excluded repo has uncommitted changes:
+    -   Confirmation dialog appears with countdown timer
+    -   Options: "Push Anyway", "Skip This Repo", "Cancel All"
+    -   Auto-selects "Skip" if no response within timeout
+    -   "Cancel All" stops all remaining push operations
 
 **Window Behavior:**
-- Always keep window on top (immediate effect)
-- Window width (600-2000px, requires restart)
-- Window height (400-1200px, requires restart)
+
+-   Always keep window on top (immediate effect)
+-   Window width (600-2000px, requires restart)
+-   Window height (400-1200px, requires restart)
 
 **Auto-Close Delays:**
-- After operations complete (0-10000ms, immediate effect)
-- When no repositories need updates (0-10000ms, immediate effect)
+
+-   After operations complete (0-10000ms, immediate effect)
+-   When no repositories need updates (0-10000ms, immediate effect)
 
 #### Git Operations
+
 **Performance:**
-- PowerShell throttle limit (1-100 concurrent operations, requires restart)
-  - Higher = faster but more resource-intensive
-  - Default: 30
-- Scan timeout (10-600 seconds, immediate effect)
-- Operation timeout (10-600 seconds, immediate effect)
+
+-   PowerShell throttle limit (1-100 concurrent operations, requires restart)
+    -   Higher = faster but more resource-intensive
+    -   Default: 30
+-   Scan timeout (10-600 seconds, immediate effect)
+-   Operation timeout (10-600 seconds, immediate effect)
 
 **Power Options:**
-- Power countdown duration (1-60 seconds, immediate effect)
-  - Auto-selects "Shutdown" if no response (Git Push only)
+
+-   Power countdown duration (1-60 seconds, immediate effect)
+    -   Auto-selects "Shutdown" if no response (Git Push only)
+
+**Repository Exclusions:**
+
+-   Apply exclusions to Git Pull (default: OFF, immediate effect)
+    -   When enabled, excluded repositories are completely skipped during Git Pull scanning
+    -   When disabled (default), exclusions only affect Git Push operations
+    -   Provides flexibility for different workflows (e.g., pull all repos but only push selected ones)
 
 #### Appearance
+
 **Font Configuration** (all require restart):
-- Font family (must be Nerd Font for icons to display correctly)
-- Font sizes: Title, Header, Label, Stat (8-24pt)
+
+-   Font family (must be Nerd Font for icons to display correctly)
+-   Font sizes: Title, Header, Label, Stat (8-24pt)
 
 **Animations:**
-- Enable animations (requires restart)
-- Animation duration (100-1000ms, requires restart)
+
+-   Enable animations (requires restart)
+-   Animation duration (100-1000ms, requires restart)
+
+**Power Options (Git Push):**
+
+-   Icon-Only Power Buttons (default: ON, immediate effect)
+    -   When enabled (default): Shows only large icons (18pt) in power option buttons
+    -   When disabled: Shows text-only buttons with normal font size (10pt)
+    -   Tooltips always provide full descriptions regardless of mode
+    -   Provides choice between compact visual icons or explicit text labels
 
 #### Advanced
+
 **Startup:**
-- Test mode by default
-- Scan start delay (0-5000ms, requires restart)
-- Operations start delay (0-5000ms, requires restart)
+
+-   Test mode by default
+-   Scan start delay (0-5000ms, requires restart)
+-   Operations start delay (0-5000ms, requires restart)
 
 ### Repository Exclusions (Username-Specific)
 
 Exclusions are stored per user in `exclude_repositories.json`.
 
 **Use Cases:**
-- Work-in-progress repositories that shouldn't be pushed
-- User-specific experiments
-- Personal projects on shared machines
-- Temporary exclusions for testing
+
+-   Work-in-progress repositories that shouldn't be pushed
+-   User-specific experiments
+-   Personal projects on shared machines
+-   Temporary exclusions for testing
 
 **How It Works:**
+
 1. Add repository name (not full path) to exclusions list in settings
 2. When Git Push scanner finds the excluded repo with uncommitted changes:
-   - Confirmation dialog appears: "Push Anyway", "Skip This Repo", "Cancel All"
-   - Countdown timer (configurable, default 10s) auto-selects "Skip" if no response
-   - "Push Anyway" proceeds with normal push operation
-   - "Skip This Repo" skips just that repository
-   - "Cancel All" stops processing all remaining repositories
-3. Excluded repos are skipped silently during Git Pull operations
+    - Confirmation dialog appears: "Push Anyway", "Skip This Repo", "Cancel All"
+    - Countdown timer (configurable, default 10s) auto-selects "Skip" if no response
+    - "Push Anyway" proceeds with normal push operation
+    - "Skip This Repo" skips just that repository
+    - "Cancel All" stops processing all remaining repositories
+3. For Git Pull operations:
+    - By default, excluded repos are NOT skipped (controlled by "Apply Exclusions to Git Pull" setting)
+    - When "Apply Exclusions to Git Pull" is enabled, excluded repos are skipped silently during scanning
+    - This provides flexibility for different workflows (e.g., pull all repos but only push selected ones)
 
 **User Detection:**
 Uses `getpass.getuser()` to get username, ensuring exclusions are user-specific.
@@ -159,17 +195,19 @@ Uses `getpass.getuser()` to get username, ensuring exclusions are user-specific.
 The GitHub repository folder path is stored per user in `github_paths.json`. This allows different users on the same machine to have different GitHub folder locations.
 
 **Use Cases:**
-- Different users with different GitHub folder locations
-- Shared machines with user-specific Documents folders
-- Testing with different repository sets per user
-- Development vs. production environments on same machine
+
+-   Different users with different GitHub folder locations
+-   Shared machines with user-specific Documents folders
+-   Testing with different repository sets per user
+-   Development vs. production environments on same machine
 
 **How It Works:**
-- Set path via settings UI (General → Repository Paths → GitHub Repositories Folder)
-- Path validated before saving (must exist and be accessible)
-- Changes require restart to take effect
-- Each user maintains their own GitHub path
-- Default: `%userprofile%\Documents\GitHub`
+
+-   Set path via settings UI (General → Repository Paths → GitHub Repositories Folder)
+-   Path validated before saving (must exist and be accessible)
+-   Changes require restart to take effect
+-   Each user maintains their own GitHub path
+-   Default: `%userprofile%\Documents\GitHub`
 
 **User Detection:**
 Uses `getpass.getuser()` to get username, ensuring GitHub paths are user-specific.
@@ -179,18 +217,20 @@ Uses `getpass.getuser()` to get username, ensuring GitHub paths are user-specifi
 In addition to the username-specific GitHub path, you can configure additional scan locations in `custom_repositories.json`. Custom paths are **username-specific**, allowing different paths per user on shared machines.
 
 **How It Works:**
-- Add paths via settings UI (General → Repository Paths → Custom Paths)
-- Each path validated before adding (must exist and be accessible)
-- All custom paths scanned during Git Pull and Git Push operations
-- Changes require restart to take effect
-- Each user maintains their own list of custom paths
+
+-   Add paths via settings UI (General → Repository Paths → Custom Paths)
+-   Each path validated before adding (must exist and be accessible)
+-   All custom paths scanned during Git Pull and Git Push operations
+-   Changes require restart to take effect
+-   Each user maintains their own list of custom paths
 
 **Example Use Cases:**
-- External drives with different drive letters per machine
-- Work repositories in company-specific locations
-- Desktop quick projects folder
-- User-specific project directories
-- Shared network drives with user-specific folders
+
+-   External drives with different drive letters per machine
+-   Work repositories in company-specific locations
+-   Desktop quick projects folder
+-   User-specific project directories
+-   Shared network drives with user-specific folders
 
 **User Detection:**
 Uses `getpass.getuser()` to get username, ensuring custom paths are user-specific.
@@ -199,29 +239,32 @@ Uses `getpass.getuser()` to get username, ensuring custom paths are user-specifi
 
 **Settings marked with [⟳] require restart:**
 
-| Setting | Category | Why |
-|---------|----------|-----|
-| GitHub path | General | Loaded once at startup |
-| Custom repository paths | General | Scanner initialized at startup |
-| Window width/height | General | Set via setFixedSize() at init |
-| PowerShell throttle limit | Git Operations | Embedded in PowerShell script |
-| Font family and sizes | Appearance | Font objects created once |
-| Animation duration | Appearance | Animation objects created once |
-| Scan/operations start delays | Advanced | Timers created at startup |
+| Setting                      | Category       | Why                            |
+| ---------------------------- | -------------- | ------------------------------ |
+| GitHub path                  | General        | Loaded once at startup         |
+| Custom repository paths      | General        | Scanner initialized at startup |
+| Window width/height          | General        | Set via setFixedSize() at init |
+| PowerShell throttle limit    | Git Operations | Embedded in PowerShell script  |
+| Font family and sizes        | Appearance     | Font objects created once      |
+| Animation duration           | Appearance     | Animation objects created once |
+| Scan/operations start delays | Advanced       | Timers created at startup      |
 
 **Settings that take effect immediately:**
 
-| Setting | Category | How Applied |
-|---------|----------|-------------|
-| Always on top | General | Applied via setWindowFlags() |
-| Auto-close delays | General | Timer values updated |
-| Scan timeout | Git Operations | Read when worker starts |
-| Operation timeout | Git Operations | Read when worker starts |
-| Power countdown | Git Operations | Timer value updated |
-| Exclude confirmation timeout | Git Operations | Read when dialog shows |
-| Enable animations | Appearance | Checked before animations |
+| Setting                      | Category       | How Applied                  |
+| ---------------------------- | -------------- | ---------------------------- |
+| Always on top                | General        | Applied via setWindowFlags() |
+| Auto-close delays            | General        | Timer values updated         |
+| Scan timeout                 | Git Operations | Read when worker starts      |
+| Operation timeout            | Git Operations | Read when worker starts      |
+| Power countdown              | Git Operations | Timer value updated          |
+| Exclude confirmation timeout | Git Operations | Read when dialog shows       |
+| Apply exclusions to Git Pull | Git Operations | Read when scanner starts     |
+| Icon-only power buttons      | Appearance     | Read when panel creates      |
+| Enable animations            | Appearance     | Checked before animations    |
 
 When restart-required settings are changed, a tooltip notification appears after saving:
+
 > "Some settings require restart to take effect"
 
 ### Adding New Settings
@@ -231,23 +274,26 @@ See [docs/SETTINGS_GUIDE.md](docs/SETTINGS_GUIDE.md) for step-by-step instructio
 ### Key Files
 
 **Manager Classes:**
-- [core/settings_manager.py](core/settings_manager.py) - Main settings manager (~145 lines)
-- [core/github_path_manager.py](core/github_path_manager.py) - GitHub path manager (~180 lines)
-- [core/exclude_manager.py](core/exclude_manager.py) - Repository exclusion manager (~175 lines)
-- [core/custom_paths_manager.py](core/custom_paths_manager.py) - Custom paths manager (~225 lines)
+
+-   [core/settings_manager.py](core/settings_manager.py) - Main settings manager (~145 lines)
+-   [core/github_path_manager.py](core/github_path_manager.py) - GitHub path manager (~180 lines)
+-   [core/exclude_manager.py](core/exclude_manager.py) - Repository exclusion manager (~175 lines)
+-   [core/custom_paths_manager.py](core/custom_paths_manager.py) - Custom paths manager (~225 lines)
 
 **UI Components:**
-- [ui/settings_dialog.py](ui/settings_dialog.py) - Settings window with side panel navigation (~890 lines)
-- [ui/settings_components.py](ui/settings_components.py) - Reusable settings widgets (~463 lines)
-- [ui/exclude_confirmation_dialog.py](ui/exclude_confirmation_dialog.py) - Exclusion confirmation dialog (~272 lines)
+
+-   [ui/settings_dialog.py](ui/settings_dialog.py) - Settings window with tab navigation (~1090 lines)
+-   [ui/settings_components.py](ui/settings_components.py) - Reusable settings widgets with compact spacing, includes HoverIconButton subclass (~560 lines)
+-   [ui/exclude_confirmation_dialog.py](ui/exclude_confirmation_dialog.py) - Exclusion confirmation dialog (~272 lines)
 
 **Integration:**
-- [__init__.py](__init__.py) - CLI entry point for settings dialog (--settings flag)
-- [core/config.py](core/config.py) - Uses GitHubPathManager for get_default_paths()
-- [scanners/git_push_scanner.py](scanners/git_push_scanner.py) - Scans custom paths
-- [scanners/git_pull_scanner.py](scanners/git_pull_scanner.py) - Scans custom paths
-- [core/push_runner.py](core/push_runner.py) - Exclusion confirmation dialog integration
-- [workers/git_push_worker.py](workers/git_push_worker.py) - Extended result types for exclusions
+
+-   [**init**.py](__init__.py) - CLI entry point for settings dialog (--settings flag)
+-   [core/config.py](core/config.py) - Uses GitHubPathManager for get_default_paths()
+-   [scanners/git_push_scanner.py](scanners/git_push_scanner.py) - Scans custom paths
+-   [scanners/git_pull_scanner.py](scanners/git_pull_scanner.py) - Scans custom paths
+-   [core/push_runner.py](core/push_runner.py) - Exclusion confirmation dialog integration
+-   [workers/git_push_worker.py](workers/git_push_worker.py) - Extended result types for exclusions
 
 ## Development Setup
 
@@ -291,7 +337,8 @@ GitUI/
 │   ├── check_internet.py     # Internet connectivity checker
 │   ├── color.py         # Color constants and helpers
 │   ├── icons.py         # Nerd Font icon constants
-│   └── center.py        # Window centering utility
+│   ├── center.py        # Window centering utility
+│   └── resources.py     # Resource management with PyInstaller support
 ├── scanners/            # Repository scanners (discovery)
 │   ├── git_pull_scanner.py   # Scans for repos behind upstream (+ custom paths)
 │   └── git_push_scanner.py   # Scans for repos with uncommitted changes (+ custom paths)
@@ -401,6 +448,15 @@ The application uses PowerShell for high-performance parallel git operations:
 -   `create_stat_row()`: Icon + label + value statistics row
 -   Shadow effect helpers for depth
 
+#### Custom Button Classes ([ui/settings_components.py](ui/settings_components.py))
+
+-   `HoverIconButton`: QPushButton subclass that changes icon on hover/press states
+    -   Overrides `enterEvent()` and `leaveEvent()` for hover state tracking
+    -   Connects to `pressed` and `released` signals for click state tracking
+    -   Updates button text/icon based on state (normal → hover → pressed)
+    -   Used in path selector browse buttons
+    -   Eliminates need for monkey-patching event handlers on button instances
+
 #### Repository Cards ([utils/card.py](utils/card.py))
 
 -   `RepoCard` widget displays repository name, commits behind/ahead, and status
@@ -453,16 +509,21 @@ When running Git Push (`--git-push`), the application displays a power options p
 
 -   Appears automatically in the left sidebar after scan if repositories with changes are found
 -   Integrated panel (part of the main UI, between stats panel and bottom)
+-   **Panel title**: Uses separate labels for icon (18pt) and text (13pt) for visual hierarchy
 -   **Window resizes** from 620px to 800px height when panel appears and automatically re-centers on screen
 -   Presents 4 buttons in a 2x2 grid with modern glass morphism styling:
     1. **Shutdown** (Red #EF4444): Commits with "Shutdown commit by...", pushes, then shuts down system
     2. **Restart** (Blue #3B82F6): Commits with "Restart commit by...", pushes, then restarts system
     3. **Shutdown (Cancel)** (Amber #F59E0B): Commits with "Shutdown (Cancelled) commit by...", pushes, NO system action
     4. **Restart (Cancel)** (Emerald #10B981): Commits with "Restart (Cancelled) commit by...", pushes, NO system action
+-   **Button display modes** (controlled by "Icon-Only Power Buttons" setting):
+    -   **Icon-only mode** (default): Shows large 18pt icons only for compact visual display
+    -   **Text-only mode**: Shows descriptive text labels at normal 10pt font size
+    -   Tooltips provide full descriptions in both modes
 -   5-second countdown timer auto-selects "Shutdown" if no user interaction
 -   Countdown label shows time remaining, turns green when option selected
 -   All buttons disabled after selection
--   Buttons feature subtle glass effect (4% white background) with colored bottom border on hover/press
+-   Buttons feature subtle glass effect (4% white background) with colored text on hover
 
 ### Implementation Flow
 
@@ -570,9 +631,35 @@ Edit `get_default_paths()` in [core/config.py](core/config.py):98
 -   Spacing/padding: Edit `PANEL_SPACING`, `*_PADDING` constants
 -   Component styles: Edit stylesheet strings in [ui/styles.py](ui/styles.py)
 
+## Resource Management
+
+The application uses a centralized resource management system for handling icon and asset paths:
+
+### PyInstaller Support
+
+-   **[utils/resources.py](utils/resources.py)**: Resource management module with PyInstaller bundling support
+    -   `get_resource_path(relative_path)`: Returns correct paths for both development and bundled apps
+        -   Checks `sys._MEIPASS` for PyInstaller bundled apps
+        -   Falls back to project root for development mode
+    -   `get_icon(icon_name)`: Helper to load QIcon objects with proper path handling
+    -   `ResourceIcons` class: Constants for all icon filenames
+
+### Resource Files
+
+-   **[resources.qrc](resources.qrc)**: Qt resource file documenting all icons
+    -   Check.png
+    -   Git.ico, Git.png
+    -   Message.ico, Message.png
+-   **[core/config.py](core/config.py)**: Uses `get_resource_path()` for all asset paths
+    -   Ensures icons work correctly when bundled with PyInstaller
+    -   Maintains compatibility with development mode
+
+**Note**: PyQt6 removed `pyrcc6`, so we use direct file paths with proper PyInstaller support instead of compiled resource files.
+
 ## Platform Notes
 
 -   **Windows-specific**: Uses PowerShell (`pwsh`) for git operations
 -   **Nerd Fonts required**: Install JetBrainsMono Nerd Font for icons to display correctly
 -   **Git required**: Must be in PATH for PowerShell git commands to work
+-   **PyInstaller compatible**: Resource management system ensures icons work when bundled
 -   The application is designed for Windows but could be adapted for Unix/Mac by replacing PowerShell scripts with Bash equivalents
