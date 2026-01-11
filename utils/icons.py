@@ -57,8 +57,14 @@ class Icons:
     CONTENT_SAVE: str = "\udb80\udd93"  # 󰆓
     CONTENT_SAVE_CHECK: str = "\udb86\udcea"  # 󱣪
     ADD: str = "\uea60"  # 
-    TRASH: str = "\uea81"  # 
+    ADDED: str = "\ueadc"  # 
+    ADDED_FOLDER: str = "\ueec7"  # 
+    TRASH: str = "\udb82\ude79"  # 󰩹
+    TRASH_OUTLINE: str = "\udb82\ude7a"  # 󰩺
+    TRASH_OCT: str = "\uf48e"  # 
     SKIP: str = "\uf517"  # 
     USER: str = "\uf007"  # 
+    CHEVRON_DOWN: str = "\uf078"  # 
+    CHEVRON_UP: str = "\uf077"  # 
     CHEVRON_LEFT: str = "\uf053"  # 
     CHEVRON_RIGHT: str = "\uf054"  # 
