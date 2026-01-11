@@ -220,6 +220,11 @@ class GitPullRunner(BaseGitRunner):
 
     def _on_pull_finished(self, row: int, result: PullResult) -> None:
         """Handle pull operation completion."""
+        # Log the operation result
+        from core.log_manager import LogManager
+
+        LogManager().log_pull_operation(result)
+
         status = "SUCCESS" if result.status == "SUCCESS" else "FAILED"
 
         if row in self.cards:
@@ -322,5 +327,12 @@ class GitPullRunner(BaseGitRunner):
 
         for row, (name, behind, status) in enumerate(test_repos):
             self._update_card(row, name, status, behind)
+
+        # Log test operations
+        from core.log_manager import LogManager
+
+        log_manager = LogManager()
+        for name, _, status in test_repos:
+            log_manager.log_test_pull_operation(name, status)
 
         self._simulate_transitions()

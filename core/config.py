@@ -1,5 +1,51 @@
 # ----- Built-In Modules -----
+from enum import Enum
 from pathlib import Path
+
+
+# ══════════════════════════════════════════════════════════════════
+# POWER OPTIONS ENUM
+# ══════════════════════════════════════════════════════════════════
+class PowerOption(Enum):
+    """Enum for power options in Git Push runner."""
+
+    SHUTDOWN = "shutdown"
+    RESTART = "restart"
+    SHUTDOWN_CANCEL = "shutdown_cancel"
+    RESTART_CANCEL = "restart_cancel"
+
+    @classmethod
+    def get_display_name(cls, option: "PowerOption") -> str:
+        """Get human-readable display name for a power option.
+
+        Args:
+            option: PowerOption enum value
+
+        Returns:
+            str: Display name for the option
+        """
+        display_names = {
+            cls.SHUTDOWN: "Shutdown",
+            cls.RESTART: "Restart",
+            cls.SHUTDOWN_CANCEL: "Shutdown (Cancel)",
+            cls.RESTART_CANCEL: "Restart (Cancel)",
+        }
+        return display_names.get(option, option.value)
+
+    @classmethod
+    def from_string(cls, value: str) -> "PowerOption":
+        """Convert string value to PowerOption enum.
+
+        Args:
+            value: String value (e.g., 'shutdown', 'restart')
+
+        Returns:
+            PowerOption: Corresponding enum value, defaults to SHUTDOWN
+        """
+        for option in cls:
+            if option.value == value:
+                return option
+        return cls.SHUTDOWN
 
 # ══════════════════════════════════════════════════════════════════
 # WINDOW CONFIGURATION
@@ -136,7 +182,7 @@ TIME_UPDATE_INTERVAL = 100
 # ══════════════════════════════════════════════════════════════════
 POWER_DIALOG_WIDTH = 500
 POWER_DIALOG_HEIGHT = 220
-POWER_COUNTDOWN_SECONDS = 5
+POWER_COUNTDOWN_SECONDS = 15
 
 # ══════════════════════════════════════════════════════════════════
 # BUTTON CONFIGURATION
@@ -147,7 +193,7 @@ BUTTON_PADDING = (0, 16)
 # ══════════════════════════════════════════════════════════════════
 # PROGRESS BAR COLORS (Animation)
 # ══════════════════════════════════════════════════════════════════
-PROGRESS_COLORS = [
+PROGRESS_COLORS: list[str] = [
     "#7aa2f7",  # Blue
     "#7dcfff",  # Cyan
     "#9ece6a",  # Green

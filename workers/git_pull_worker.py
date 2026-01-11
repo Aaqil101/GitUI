@@ -16,9 +16,12 @@ class PullResult:
     repo_name: str
     repo_path: str
     error_message: str = ""
+    warnings: list[str] = None
     conflict_files: list[str] = None
 
     def __post_init__(self):
+        if self.warnings is None:
+            self.warnings = []
         if self.conflict_files is None:
             self.conflict_files = []
 
@@ -50,6 +53,20 @@ class GitPullWorker(BaseOperationWorker):
             $ErrorActionPreference = "Stop"
             $repoPath = '{self.repo_path}'
             $repoName = '{self.repo_name}'
+            $warnings = @()
+            $stashApplied = $false
+
+            # Function to extract warnings from git output
+            function Get-GitWarnings {{
+                param([string]$output)
+                $warns = @()
+                $output -split "`n" | ForEach-Object {{
+                    if ($_ -match "^warning:\\s*(.+)") {{
+                        $warns += $Matches[1].Trim()
+                    }}
+                }}
+                return $warns
+            }}
 
             # Check if repository exists
             if (-not (Test-Path -LiteralPath $repoPath)) {{
@@ -57,6 +74,7 @@ class GitPullWorker(BaseOperationWorker):
                     Status = "MISSING"
                     RepoName = $repoName
                     ErrorMessage = "Repository path does not exist"
+                    Warnings = @()
                 }} | ConvertTo-Json -Compress
                 exit 0
             }}
@@ -66,12 +84,14 @@ class GitPullWorker(BaseOperationWorker):
 
                 # Attempt pull
                 $pullOutput = git pull 2>&1 | Out-String
+                $warnings += Get-GitWarnings $pullOutput
 
                 if ($LASTEXITCODE -eq 0) {{
                     # Success on first attempt
                     [PSCustomObject]@{{
                         Status = "SUCCESS"
                         RepoName = $repoName
+                        Warnings = $warnings
                     }} | ConvertTo-Json -Compress
                     exit 0
                 }}
@@ -80,30 +100,37 @@ class GitPullWorker(BaseOperationWorker):
                 if ($pullOutput -match "error: Your local changes|would be overwritten|Please commit your changes or stash them") {{
                     # Stash local changes
                     $stashOutput = git stash push -m "Auto-stash $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" 2>&1 | Out-String
+                    $warnings += Get-GitWarnings $stashOutput
 
                     if ($LASTEXITCODE -ne 0) {{
                         [PSCustomObject]@{{
                             Status = "ERROR"
                             RepoName = $repoName
                             ErrorMessage = "Failed to stash changes: $stashOutput"
+                            Warnings = $warnings
                         }} | ConvertTo-Json -Compress
                         exit 0
                     }}
 
+                    $stashApplied = $true
+
                     # Retry pull
                     $pullOutput = git pull 2>&1 | Out-String
+                    $warnings += Get-GitWarnings $pullOutput
 
                     if ($LASTEXITCODE -ne 0) {{
                         [PSCustomObject]@{{
                             Status = "ERROR"
                             RepoName = $repoName
                             ErrorMessage = "Pull failed after stashing: $pullOutput"
+                            Warnings = $warnings
                         }} | ConvertTo-Json -Compress
                         exit 0
                     }}
 
                     # Restore stashed changes
                     $popOutput = git stash pop 2>&1 | Out-String
+                    $warnings += Get-GitWarnings $popOutput
 
                     if ($LASTEXITCODE -ne 0) {{
                         # Check for merge conflicts
@@ -118,6 +145,7 @@ class GitPullWorker(BaseOperationWorker):
                                 RepoName = $repoName
                                 ErrorMessage = "Merge conflicts detected"
                                 ConflictFiles = $filesArray
+                                Warnings = $warnings
                             }} | ConvertTo-Json -Compress
                             exit 0
                         }}
@@ -126,14 +154,19 @@ class GitPullWorker(BaseOperationWorker):
                             Status = "ERROR"
                             RepoName = $repoName
                             ErrorMessage = "Failed to restore stash: $popOutput"
+                            Warnings = $warnings
                         }} | ConvertTo-Json -Compress
                         exit 0
                     }}
+
+                    # Add operation-level warning about stash
+                    $warnings += "Changes were auto-stashed and restored"
 
                     # Success after stash/pop
                     [PSCustomObject]@{{
                         Status = "SUCCESS"
                         RepoName = $repoName
+                        Warnings = $warnings
                     }} | ConvertTo-Json -Compress
                     exit 0
                 }} else {{
@@ -142,6 +175,7 @@ class GitPullWorker(BaseOperationWorker):
                         Status = "ERROR"
                         RepoName = $repoName
                         ErrorMessage = $pullOutput
+                        Warnings = $warnings
                     }} | ConvertTo-Json -Compress
                     exit 0
                 }}
@@ -150,6 +184,7 @@ class GitPullWorker(BaseOperationWorker):
                     Status = "ERROR"
                     RepoName = $repoName
                     ErrorMessage = $_.Exception.Message
+                    Warnings = $warnings
                 }} | ConvertTo-Json -Compress
                 exit 0
             }}
@@ -169,6 +204,7 @@ class GitPullWorker(BaseOperationWorker):
             repo_name=data.get("RepoName", self.repo_name),
             repo_path=self.repo_path,
             error_message=data.get("ErrorMessage", ""),
+            warnings=data.get("Warnings", []),
             conflict_files=data.get("ConflictFiles", []),
         )
 

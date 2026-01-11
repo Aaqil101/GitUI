@@ -49,17 +49,17 @@ class ExcludeConfirmationDialog(QDialog):
         # Get timeout from settings
         settings = SettingsManager().get_settings()
         self.timeout_seconds = settings.get("git_operations", {}).get(
-            "exclude_confirmation_timeout", 10
+            "exclude_confirmation_timeout", 5
         )
         self.time_left = self.timeout_seconds
 
         self._init_ui()
         self._start_countdown()
 
-    def _init_ui(self):
+    def _init_ui(self) -> None:
         """Initialize the user interface."""
         self.setWindowTitle("Excluded Repository Detected")
-        self.setFixedSize(500, 220)
+        self.setFixedSize(500, 300)
         self.setWindowFlags(Qt.WindowType.Dialog | Qt.WindowType.WindowStaysOnTopHint)
         self.setModal(True)
 

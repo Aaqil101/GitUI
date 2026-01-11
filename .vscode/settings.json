@@ -4,6 +4,7 @@
         "creationflags",
         "getpass",
         "getuser",
+        "LASTEXITCODE",
         "LOCALAPPDATA",
         "MEIPASS",
         "morphism",

@@ -3,6 +3,7 @@ from PyQt6.QtCore import QEvent, Qt
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (
     QCheckBox,
+    QComboBox,
     QFileDialog,
     QHBoxLayout,
     QLabel,
@@ -445,6 +446,106 @@ def create_checkbox_row(
     layout.addStretch()
 
     return widget, checkbox
+
+
+# ══════════════════════════════════════════════════════════════════
+# COMBOBOX ROW
+# ══════════════════════════════════════════════════════════════════
+def create_combobox_row(
+    label: str,
+    options: list[tuple[str, str]],
+    current_value: str,
+    tooltip: str = "",
+) -> tuple[QWidget, QComboBox]:
+    """Create a labeled combobox row.
+
+    Args:
+        label: Label text
+        options: List of (value, display_text) tuples
+        current_value: Current selected value
+        tooltip: Optional tooltip text
+
+    Returns:
+        tuple: (widget, combobox) - widget for layout, combobox for reading value
+    """
+    widget = QWidget()
+    layout = QHBoxLayout(widget)
+    layout.setContentsMargins(0, 4, 0, 4)
+    layout.setSpacing(12)
+
+    # Label
+    label_widget = QLabel(label)
+    label_widget.setFont(QFont(FONT_FAMILY, FONT_SIZE_STAT))
+    label_widget.setStyleSheet(f"color: {THEME_TEXT_SECONDARY}; padding: 0;")
+    if tooltip:
+        label_widget.setToolTip(tooltip)
+    layout.addWidget(label_widget, 1)
+
+    # Combobox
+    combobox = QComboBox()
+    combobox.setFont(QFont(FONT_FAMILY, FONT_SIZE_STAT))
+    combobox.setFixedWidth(180)
+
+    # Add options
+    for value, display_text in options:
+        combobox.addItem(display_text, value)
+
+    # Set current value
+    index: int = combobox.findData(current_value)
+    if index >= 0:
+        combobox.setCurrentIndex(index)
+
+    combobox.setStyleSheet(
+        f"""
+        QComboBox {{
+            background-color: rgba(255, 255, 255, 0.04);
+            color: {THEME_TEXT_PRIMARY};
+            border-radius: 4px;
+            padding: 6px 10px;
+            border: 2px solid transparent;
+        }}
+        QComboBox:focus {{
+            background-color: #222;
+            border-bottom: 2px solid {COLOR_DARK_BLUE};
+            border-left: 2px solid {COLOR_DARK_BLUE};
+            outline: none;
+        }}
+        QComboBox:hover {{
+            background-color: rgba(255, 255, 255, 0.06);
+        }}
+        QComboBox::drop-down {{
+            border: none;
+            width: 20px;
+        }}
+        QComboBox::down-arrow {{
+            image: none;
+            width: 0;
+            height: 0;
+        }}
+        QComboBox QAbstractItemView {{
+            background-color: #1a1b26;
+            color: {THEME_TEXT_PRIMARY};
+            selection-background-color: rgba(122, 162, 247, 0.3);
+            selection-color: {THEME_TEXT_PRIMARY};
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            padding: 4px;
+            outline: none;
+        }}
+        QComboBox QAbstractItemView::item {{
+            padding: 6px 10px;
+            border-radius: 3px;
+        }}
+        QComboBox QAbstractItemView::item:hover {{
+            background-color: rgba(255, 255, 255, 0.06);
+        }}
+        """
+    )
+    if tooltip:
+        combobox.setToolTip(tooltip)
+    layout.addWidget(combobox)
+
+    return widget, combobox
 
 
 # ══════════════════════════════════════════════════════════════════

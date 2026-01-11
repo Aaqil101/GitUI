@@ -149,8 +149,9 @@ class SettingsManager:
                 "powershell_throttle_limit": 30,
                 "scan_timeout": 300,
                 "operation_timeout": 60,
-                "power_countdown_seconds": 5,
-                "exclude_confirmation_timeout": 10,
+                "power_countdown_seconds": 15,
+                "default_power_option": "shutdown",
+                "exclude_confirmation_timeout": 5,
                 "exclude_repos_affect_pull": False,
             },
             "appearance": {

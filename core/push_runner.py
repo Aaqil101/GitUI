@@ -323,6 +323,12 @@ class GitPushRunner(BaseGitRunner):
 
     def _on_push_finished(self, row: int, result: PushResult) -> None:
         """Handle push operation completion."""
+        # Log the operation result
+        from core.log_manager import LogManager
+
+        commit_prefix = self._get_commit_prefix() if hasattr(self, "power_option") else ""
+        LogManager().log_push_operation(result, commit_prefix)
+
         # Map result status to card status
         if result.status == "SUCCESS":
             status = "SUCCESS"
@@ -397,6 +403,13 @@ class GitPushRunner(BaseGitRunner):
 
         for row, (name, behind, status) in enumerate(test_repos):
             self._update_card(row, name, status, behind)
+
+        # Log test operations
+        from core.log_manager import LogManager
+
+        log_manager = LogManager()
+        for name, _, status in test_repos:
+            log_manager.log_test_push_operation(name, status)
 
         # Show power options panel in test mode too
         QTimer.singleShot(1000, self._show_power_options_panel)

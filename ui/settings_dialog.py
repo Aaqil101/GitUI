@@ -26,6 +26,7 @@ from core.config import (
     COLOR_ORANGE,
     FONT_FAMILY,
     FONT_SIZE_STAT,
+    PowerOption,
     THEME_BG_PRIMARY,
     THEME_BG_SECONDARY,
     THEME_TEXT_PRIMARY,
@@ -37,12 +38,14 @@ from core.config import (
 from core.custom_paths_manager import CustomPathsManager
 from core.exclude_manager import ExcludeManager
 from core.github_path_manager import GitHubPathManager
+from core.log_manager import LogManager
 from core.settings_manager import SettingsManager
 
 # ----- UI Component Imports -----
 from ui.settings_components import (
     HoverIconButton,
     create_checkbox_row,
+    create_combobox_row,
     create_list_manager,
     create_path_selector,
     create_settings_section,
@@ -77,6 +80,7 @@ class SettingsDialog(QDialog):
         self.exclude_manager = ExcludeManager()
         self.custom_paths_manager = CustomPathsManager()
         self.github_path_manager = GitHubPathManager()
+        self.log_manager = LogManager()
 
         # Deep copy current settings to allow cancellation
         self.current_settings = self._deep_copy_dict(
@@ -574,6 +578,22 @@ class SettingsDialog(QDialog):
         self.ui_components["power_countdown"] = power_countdown_spin
         layout.addWidget(power_countdown_widget)
 
+        # Default Power Option dropdown
+        power_options = [
+            (PowerOption.SHUTDOWN.value, PowerOption.get_display_name(PowerOption.SHUTDOWN)),
+            (PowerOption.RESTART.value, PowerOption.get_display_name(PowerOption.RESTART)),
+            (PowerOption.SHUTDOWN_CANCEL.value, PowerOption.get_display_name(PowerOption.SHUTDOWN_CANCEL)),
+            (PowerOption.RESTART_CANCEL.value, PowerOption.get_display_name(PowerOption.RESTART_CANCEL)),
+        ]
+        default_power_widget, default_power_combo = create_combobox_row(
+            "Default Power Option",
+            power_options,
+            self.current_settings["git_operations"].get("default_power_option", "shutdown"),
+            "Power option auto-selected when countdown expires (Git Push only)",
+        )
+        self.ui_components["default_power_option"] = default_power_combo
+        layout.addWidget(default_power_widget)
+
         # Repository Exclusions Section
         layout.addWidget(
             create_settings_section("Repository Exclusions", Icons.EXCLUDE)
@@ -762,6 +782,97 @@ class SettingsDialog(QDialog):
         )
         self.ui_components["operations_start_delay"] = ops_delay_spin
         layout.addWidget(ops_delay_widget)
+
+        # Log Management Section
+        layout.addWidget(create_settings_section("Log Management", Icons.FILE))
+
+        # Log stats display
+        log_stats = self.log_manager.get_log_stats()
+        size_kb = log_stats["total_size_bytes"] / 1024
+        size_display = f"{size_kb:.1f} KB" if size_kb < 1024 else f"{size_kb/1024:.2f} MB"
+
+        self.log_stats_label = QLabel(
+            f"{Icons.INFO}  {log_stats['total_files']} log files across "
+            f"{log_stats['repo_count']} repositories ({size_display})"
+        )
+        self.log_stats_label.setFont(QFont(FONT_FAMILY, FONT_SIZE_STAT))
+        self.log_stats_label.setStyleSheet(
+            f"color: {THEME_TEXT_SECONDARY}; padding: 4px 0;"
+        )
+        layout.addWidget(self.log_stats_label)
+
+        # Clear logs buttons row
+        clear_logs_widget = QWidget()
+        clear_logs_layout = QHBoxLayout(clear_logs_widget)
+        clear_logs_layout.setContentsMargins(0, 4, 0, 4)
+        clear_logs_layout.setSpacing(8)
+
+        # Common button style for clear buttons
+        clear_btn_style = f"""
+            QPushButton {{
+                background-color: rgba(247, 118, 142, 0.1);
+                color: #f7768e;
+                border-radius: 4px;
+                padding: 6px 12px;
+            }}
+            QPushButton:hover {{
+                background-color: rgba(247, 118, 142, 0.2);
+                border-bottom: 2px solid #f7768e;
+            }}
+            QPushButton:pressed {{
+                background-color: rgba(247, 118, 142, 0.3);
+            }}
+            QPushButton:focus {{
+                background-color: rgba(247, 118, 142, 0.2);
+                border-bottom: 2px solid #f7768e;
+                outline: none;
+            }}
+        """
+
+        # Clear logs older than 7 days
+        clear_7_days_btn = HoverIconButton(
+            normal_icon=Icons.TRASH_OUTLINE,
+            hover_icon=Icons.TRASH,
+            pressed_icon=Icons.TRASH_OCT,
+            text="Older than 7 days",
+        )
+        clear_7_days_btn.setFont(QFont(FONT_FAMILY, FONT_SIZE_STAT))
+        clear_7_days_btn.setFixedHeight(32)
+        clear_7_days_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        clear_7_days_btn.setStyleSheet(clear_btn_style)
+        clear_7_days_btn.clicked.connect(lambda: self._on_clear_logs_clicked(days=7))
+        clear_logs_layout.addWidget(clear_7_days_btn)
+
+        # Clear logs older than 30 days
+        clear_30_days_btn = HoverIconButton(
+            normal_icon=Icons.TRASH_OUTLINE,
+            hover_icon=Icons.TRASH,
+            pressed_icon=Icons.TRASH_OCT,
+            text="Older than 30 days",
+        )
+        clear_30_days_btn.setFont(QFont(FONT_FAMILY, FONT_SIZE_STAT))
+        clear_30_days_btn.setFixedHeight(32)
+        clear_30_days_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        clear_30_days_btn.setStyleSheet(clear_btn_style)
+        clear_30_days_btn.clicked.connect(lambda: self._on_clear_logs_clicked(days=30))
+        clear_logs_layout.addWidget(clear_30_days_btn)
+
+        # Clear all logs
+        clear_all_btn = HoverIconButton(
+            normal_icon=Icons.TRASH_OUTLINE,
+            hover_icon=Icons.TRASH,
+            pressed_icon=Icons.TRASH_OCT,
+            text="Clear All",
+        )
+        clear_all_btn.setFont(QFont(FONT_FAMILY, FONT_SIZE_STAT))
+        clear_all_btn.setFixedHeight(32)
+        clear_all_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        clear_all_btn.setStyleSheet(clear_btn_style)
+        clear_all_btn.clicked.connect(lambda: self._on_clear_logs_clicked(days=None))
+        clear_logs_layout.addWidget(clear_all_btn)
+
+        clear_logs_layout.addStretch()
+        layout.addWidget(clear_logs_widget)
 
         layout.addStretch()
 
@@ -1112,6 +1223,9 @@ class SettingsDialog(QDialog):
         self.current_settings["git_operations"]["power_countdown_seconds"] = (
             self.ui_components["power_countdown"].value()
         )
+        self.current_settings["git_operations"]["default_power_option"] = (
+            self.ui_components["default_power_option"].currentData()
+        )
         self.current_settings["git_operations"]["exclude_confirmation_timeout"] = (
             self.ui_components["exclude_timeout"].value()
         )
@@ -1201,6 +1315,82 @@ class SettingsDialog(QDialog):
     def _on_cancel_clicked(self) -> None:
         """Handle Cancel button click."""
         self.reject()
+
+    def _on_clear_logs_clicked(self, days: int | None = None) -> None:
+        """Handle Clear Logs button click.
+
+        Args:
+            days: If provided, only clear logs older than this many days.
+                  If None, clear all logs.
+        """
+        # Get stats based on whether we're clearing by age or all
+        if days is not None:
+            log_stats = self.log_manager.get_log_stats_by_age(days)
+            title = f"Clear Logs Older Than {days} Days"
+            description = f"older than {days} days"
+        else:
+            log_stats = self.log_manager.get_log_stats()
+            title = "Clear All Logs"
+            description = "all"
+
+        if log_stats["total_files"] == 0:
+            if days is not None:
+                QMessageBox.information(
+                    self,
+                    "No Logs",
+                    f"There are no log files older than {days} days.",
+                )
+            else:
+                QMessageBox.information(
+                    self,
+                    "No Logs",
+                    "There are no log files to clear.",
+                )
+            return
+
+        size_kb = log_stats["total_size_bytes"] / 1024
+        size_display = f"{size_kb:.1f} KB" if size_kb < 1024 else f"{size_kb/1024:.2f} MB"
+
+        reply = QMessageBox.question(
+            self,
+            title,
+            f"Are you sure you want to delete {description} log files?\n\n"
+            f"This will remove:\n"
+            f"- {log_stats['total_files']} log files\n"
+            f"- From {log_stats['repo_count']} repositories\n"
+            f"- Total size: {size_display}\n\n"
+            f"This action cannot be undone.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+
+        if reply == QMessageBox.StandardButton.Yes:
+            success, files_deleted, error_msg = self.log_manager.clear_logs(days=days)
+
+            if success:
+                # Update the stats label with current total stats
+                new_stats = self.log_manager.get_log_stats()
+                new_size_kb = new_stats["total_size_bytes"] / 1024
+                new_size_display = (
+                    f"{new_size_kb:.1f} KB"
+                    if new_size_kb < 1024
+                    else f"{new_size_kb/1024:.2f} MB"
+                )
+                self.log_stats_label.setText(
+                    f"{Icons.INFO}  {new_stats['total_files']} log files across "
+                    f"{new_stats['repo_count']} repositories ({new_size_display})"
+                )
+                QMessageBox.information(
+                    self,
+                    "Logs Cleared",
+                    f"Successfully deleted {files_deleted} log files.",
+                )
+            else:
+                QMessageBox.critical(
+                    self,
+                    "Error",
+                    f"Failed to clear logs:\n{error_msg}",
+                )
 
     def _on_reset_clicked(self) -> None:
         """Handle Reset to Defaults button click."""

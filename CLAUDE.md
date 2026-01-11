@@ -70,6 +70,7 @@ Settings are stored in JSON format in `%appdata%\GitUI\`:
 -   **github_paths.json** - Username-specific GitHub repository paths
 -   **exclude_repositories.json** - Username-specific repository exclusions
 -   **custom_repositories.json** - Username-specific custom repository paths
+-   **log/** - Operation logs organized by repository (see [Logging System](#logging-system))
 
 All managers use singleton patterns for consistent state management.
 
@@ -125,7 +126,11 @@ All managers use singleton patterns for consistent state management.
 **Power Options:**
 
 -   Power countdown duration (1-60 seconds, immediate effect)
-    -   Auto-selects "Shutdown" if no response (Git Push only)
+    -   Auto-selects default power option if no response (Git Push only)
+-   Default power option (immediate effect)
+    -   Options: Shutdown, Restart, Shutdown (Cancel), Restart (Cancel)
+    -   Uses `PowerOption` enum from `core/config.py`
+    -   Default: Shutdown
 
 **Repository Exclusions:**
 
@@ -161,6 +166,16 @@ All managers use singleton patterns for consistent state management.
 -   Test mode by default
 -   Scan start delay (0-5000ms, requires restart)
 -   Operations start delay (0-5000ms, requires restart)
+
+**Log Management:**
+
+-   Displays current log statistics (file count, repository count, total size)
+-   Time-based log clearing options:
+    -   "Older than 7 days" - Clears logs older than 7 days
+    -   "Older than 30 days" - Clears logs older than 30 days
+    -   "Clear All" - Clears all log files
+-   Confirmation dialog shows detailed breakdown (files, repos, size)
+-   Stats display updates after successful clearing
 
 ### Repository Exclusions (Username-Specific)
 
@@ -279,6 +294,7 @@ See [docs/SETTINGS_GUIDE.md](docs/SETTINGS_GUIDE.md) for step-by-step instructio
 -   [core/github_path_manager.py](core/github_path_manager.py) - GitHub path manager (~180 lines)
 -   [core/exclude_manager.py](core/exclude_manager.py) - Repository exclusion manager (~175 lines)
 -   [core/custom_paths_manager.py](core/custom_paths_manager.py) - Custom paths manager (~225 lines)
+-   [core/log_manager.py](core/log_manager.py) - Operation logging manager (~120 lines)
 
 **UI Components:**
 
@@ -294,6 +310,75 @@ See [docs/SETTINGS_GUIDE.md](docs/SETTINGS_GUIDE.md) for step-by-step instructio
 -   [scanners/git_pull_scanner.py](scanners/git_pull_scanner.py) - Scans custom paths
 -   [core/push_runner.py](core/push_runner.py) - Exclusion confirmation dialog integration
 -   [workers/git_push_worker.py](workers/git_push_worker.py) - Extended result types for exclusions
+
+## Logging System
+
+GitUI automatically logs all git pull and push operations to help track repository activity and diagnose issues.
+
+### Log Directory Structure
+
+Logs are stored in `%APPDATA%\GitUI\log\` with each repository having its own folder:
+
+```
+%APPDATA%\GitUI\log\
+├── repo-name-1\
+│   ├── pull.log
+│   └── push.log
+├── repo-name-2\
+│   ├── pull.log
+│   └── push.log
+└── ...
+```
+
+### Log Format
+
+Logs use NDJSON format (newline-delimited JSON) for easy parsing and appending.
+
+**Pull log entry:**
+```json
+{"timestamp": "2024-01-11 10:30:45", "status": "SUCCESS", "error_message": "", "warnings": [], "conflict_files": []}
+```
+
+**Push log entry:**
+```json
+{"timestamp": "2024-01-11 10:30:45", "status": "SUCCESS", "error_message": "", "warnings": [], "is_excluded": false, "commit_prefix": "Shutdown"}
+```
+
+### Logged Data
+
+**Pull operations log:**
+- `timestamp`: When the operation occurred
+- `status`: SUCCESS, CONFLICT, ERROR, or MISSING
+- `error_message`: Error details if operation failed
+- `warnings`: Git command warnings and operation-level warnings
+- `conflict_files`: List of files with merge conflicts (if applicable)
+
+**Push operations log:**
+- `timestamp`: When the operation occurred
+- `status`: SUCCESS, ERROR, MISSING, SKIPPED, or CANCELLED
+- `error_message`: Error details if operation failed
+- `warnings`: Git command warnings and operation-level warnings
+- `is_excluded`: Whether the repository was in the exclusion list
+- `commit_prefix`: The power action prefix used (e.g., "Shutdown", "Restart")
+
+### Warning Types Captured
+
+**Git command warnings** (extracted from git output):
+- `LF will be replaced by CRLF`
+- `CRLF will be replaced by LF`
+- Any line starting with `warning:`
+
+**Operation-level warnings**:
+- `Changes were auto-stashed and restored` - when local changes were stashed during pull
+- `No changes to commit` - when push was called but repository was clean
+
+### Key Files
+
+- [core/log_manager.py](core/log_manager.py) - LogManager singleton class
+- [workers/git_pull_worker.py](workers/git_pull_worker.py) - PullResult with warnings field
+- [workers/git_push_worker.py](workers/git_push_worker.py) - PushResult with warnings field
+- [core/pull_runner.py](core/pull_runner.py) - Calls LogManager in `_on_pull_finished()`
+- [core/push_runner.py](core/push_runner.py) - Calls LogManager in `_on_push_finished()`
 
 ## Development Setup
 

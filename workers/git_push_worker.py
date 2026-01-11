@@ -16,7 +16,12 @@ class PushResult:
     repo_name: str
     repo_path: str
     error_message: str = ""
+    warnings: list[str] = None
     is_excluded: bool = False  # True if repo is excluded
+
+    def __post_init__(self):
+        if self.warnings is None:
+            self.warnings = []
 
 
 class GitPushWorker(BaseOperationWorker):
@@ -36,7 +41,7 @@ class GitPushWorker(BaseOperationWorker):
             repo_path: Absolute path to repository
             commit_prefix: Commit message prefix (e.g., "Shutdown", "Restart")
         """
-        self.commit_prefix = commit_prefix
+        self.commit_prefix: str = commit_prefix
         super().__init__(repo_name, repo_path)
 
     def _create_signals(self) -> QObject:
@@ -50,6 +55,19 @@ class GitPushWorker(BaseOperationWorker):
             $repoPath = '{self.repo_path}'
             $repoName = '{self.repo_name}'
             $commitPrefix = '{self.commit_prefix}'
+            $warnings = @()
+
+            # Function to extract warnings from git output
+            function Get-GitWarnings {{
+                param([string]$output)
+                $warns = @()
+                $output -split "`n" | ForEach-Object {{
+                    if ($_ -match "^warning:\\s*(.+)") {{
+                        $warns += $Matches[1].Trim()
+                    }}
+                }}
+                return $warns
+            }}
 
             # Check if repository exists
             if (-not (Test-Path -LiteralPath $repoPath)) {{
@@ -57,6 +75,7 @@ class GitPushWorker(BaseOperationWorker):
                     Status = "MISSING"
                     RepoName = $repoName
                     ErrorMessage = "Repository path does not exist"
+                    Warnings = @()
                 }} | ConvertTo-Json -Compress
                 exit 0
             }}
@@ -73,17 +92,20 @@ class GitPushWorker(BaseOperationWorker):
                         Status = "SUCCESS"
                         RepoName = $repoName
                         ErrorMessage = "No changes to commit"
+                        Warnings = @("No changes to commit")
                     }} | ConvertTo-Json -Compress
                     exit 0
                 }}
 
                 # Stage all changes
-                $null = git add . 2>&1
+                $addOutput = git add . 2>&1 | Out-String
+                $warnings += Get-GitWarnings $addOutput
                 if ($LASTEXITCODE -ne 0) {{
                     [PSCustomObject]@{{
                         Status = "ERROR"
                         RepoName = $repoName
                         ErrorMessage = "Failed to stage changes"
+                        Warnings = $warnings
                     }} | ConvertTo-Json -Compress
                     exit 0
                 }}
@@ -124,13 +146,15 @@ class GitPushWorker(BaseOperationWorker):
                 $commitMessage | Out-File -FilePath $tempFile -Encoding UTF8
 
                 # Commit changes
-                $null = git commit -F $tempFile 2>&1
+                $commitOutput = git commit -F $tempFile 2>&1 | Out-String
+                $warnings += Get-GitWarnings $commitOutput
                 if ($LASTEXITCODE -ne 0) {{
                     Remove-Item -Path $tempFile -Force -ErrorAction SilentlyContinue
                     [PSCustomObject]@{{
                         Status = "ERROR"
                         RepoName = $repoName
                         ErrorMessage = "Failed to commit changes"
+                        Warnings = $warnings
                     }} | ConvertTo-Json -Compress
                     exit 0
                 }}
@@ -140,11 +164,13 @@ class GitPushWorker(BaseOperationWorker):
 
                 # Push changes
                 $pushOutput = git push 2>&1 | Out-String
+                $warnings += Get-GitWarnings $pushOutput
                 if ($LASTEXITCODE -ne 0) {{
                     [PSCustomObject]@{{
                         Status = "ERROR"
                         RepoName = $repoName
                         ErrorMessage = "Failed to push: $pushOutput"
+                        Warnings = $warnings
                     }} | ConvertTo-Json -Compress
                     exit 0
                 }}
@@ -153,6 +179,7 @@ class GitPushWorker(BaseOperationWorker):
                 [PSCustomObject]@{{
                     Status = "SUCCESS"
                     RepoName = $repoName
+                    Warnings = $warnings
                 }} | ConvertTo-Json -Compress
                 exit 0
 
@@ -161,6 +188,7 @@ class GitPushWorker(BaseOperationWorker):
                     Status = "ERROR"
                     RepoName = $repoName
                     ErrorMessage = $_.Exception.Message
+                    Warnings = $warnings
                 }} | ConvertTo-Json -Compress
                 exit 0
             }}
@@ -180,6 +208,7 @@ class GitPushWorker(BaseOperationWorker):
             repo_name=data.get("RepoName", self.repo_name),
             repo_path=self.repo_path,
             error_message=data.get("ErrorMessage", ""),
+            warnings=data.get("Warnings", []),
         )
 
     def _get_error_result(self, error_message: str, duration: float) -> PushResult:

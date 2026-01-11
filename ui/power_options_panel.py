@@ -8,6 +8,7 @@ from core.config import (
     FONT_FAMILY,
     FONT_SIZE_STAT,
     POWER_COUNTDOWN_SECONDS,
+    PowerOption,
     STATS_PANEL_PADDING,
 )
 
@@ -40,14 +41,19 @@ def create_power_options_panel(parent=None) -> tuple[QWidget, PowerOptionsSignal
     # Create signals object
     signals = PowerOptionsSignals()
 
-    # Get icon-only setting
+    # Get settings
     settings_manager = SettingsManager()
     settings = settings_manager.get_settings()
     icon_only = settings.get("appearance", {}).get("power_buttons_icon_only", True)
+    default_option_str = settings.get("git_operations", {}).get(
+        "default_power_option", "shutdown"
+    )
+    default_option = PowerOption.from_string(default_option_str)
 
     # Create panel widget
     widget = QWidget(parent)
     widget.setStyleSheet(PANEL_STYLE)
+    widget.default_power_option = default_option
 
     layout = QVBoxLayout(widget)
     layout.setSpacing(12)
@@ -76,9 +82,10 @@ def create_power_options_panel(parent=None) -> tuple[QWidget, PowerOptionsSignal
     title_widget.setLayout(title_layout)
     layout.addWidget(title_widget)
 
-    # Countdown label
+    # Countdown label - show the default power option name
+    default_option_name = PowerOption.get_display_name(default_option)
     countdown_label = QLabel(
-        f"Auto-selecting 'Shutdown' in {POWER_COUNTDOWN_SECONDS}s..."
+        f"Auto-selecting '{default_option_name}' in {POWER_COUNTDOWN_SECONDS}s..."
     )
     countdown_label.setFont(QFont(FONT_FAMILY, 10))
     countdown_label.setStyleSheet("color: #7aa2f7; padding: 0;")
@@ -230,6 +237,7 @@ def _create_icon_button(icon: str, color: str) -> QPushButton:
         QPushButton {{
             background-color: {_hex_to_rgba(color, 0.03)};
             color: {_hex_to_rgba(color, 0.9)};
+            text-align: center;
             font-weight: bold;
             padding: 4px 8px;
             border: none;
@@ -272,9 +280,8 @@ def _create_text_button(text: str, color: str) -> QPushButton:
     """
     button = QPushButton(text)
     button.setFixedHeight(40)
-    button.setFont(
-        QFont(FONT_FAMILY, FONT_SIZE_STAT, QFont.Weight.Bold)
-    )  # Normal font for text
+    # Normal font for text
+    button.setFont(QFont(FONT_FAMILY, FONT_SIZE_STAT, QFont.Weight.Bold))
     button.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
 
     # Clean button style matching settings button
@@ -283,6 +290,7 @@ def _create_text_button(text: str, color: str) -> QPushButton:
         QPushButton {{
             background-color: {_hex_to_rgba(color, 0.03)};
             color: {_hex_to_rgba(color, 0.9)};
+            text-align: center;
             font-weight: bold;
             padding: 4px 8px;
             border: none;
@@ -316,9 +324,9 @@ def _start_countdown(widget: QWidget) -> None:
     widget.countdown_timer.timeout.connect(lambda: _update_countdown(widget))
     widget.countdown_timer.start(1000)
 
-    # Auto-select shutdown after countdown
+    # Auto-select default option after countdown
     QTimer.singleShot(
-        POWER_COUNTDOWN_SECONDS * 1000, lambda: _auto_select_shutdown(widget)
+        POWER_COUNTDOWN_SECONDS * 1000, lambda: _auto_select_default(widget)
     )
 
 
@@ -326,15 +334,16 @@ def _update_countdown(widget: QWidget) -> None:
     """Update countdown label every second."""
     widget.time_left -= 1
     if widget.time_left >= 0:
+        default_option_name = PowerOption.get_display_name(widget.default_power_option)
         widget.countdown_label.setText(
-            f"Auto-selecting 'Shutdown' in {widget.time_left}s..."
+            f"Auto-selecting '{default_option_name}' in {widget.time_left}s..."
         )
 
 
-def _auto_select_shutdown(widget: QWidget) -> None:
-    """Auto-select shutdown if no option selected."""
+def _auto_select_default(widget: QWidget) -> None:
+    """Auto-select the default power option if no option selected."""
     if widget.power_option is None:
-        _on_button_clicked(widget, "shutdown")
+        _on_button_clicked(widget, widget.default_power_option.value)
 
 
 def _on_button_clicked(widget: QWidget, option: str) -> None:
