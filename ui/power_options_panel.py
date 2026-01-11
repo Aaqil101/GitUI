@@ -91,19 +91,19 @@ def create_power_options_panel(parent=None) -> tuple[QWidget, PowerOptionsSignal
         buttons_layout = QHBoxLayout()
         buttons_layout.setSpacing(8)
 
-        shutdown_btn: QPushButton = _create_icon_button(Icons.SHUTDOWN, "#EF4444")
+        shutdown_btn = _create_icon_button(Icons.SHUTDOWN, "#EF4444")
         shutdown_btn.setToolTip(
             "Commits with 'Shutdown commit by...', pushes, then shuts down system"
         )
         buttons_layout.addWidget(shutdown_btn)
 
-        restart_btn: QPushButton = _create_icon_button(Icons.RESTART, "#3B82F6")
+        restart_btn = _create_icon_button(Icons.RESTART, "#3B82F6")
         restart_btn.setToolTip(
             "Commits with 'Restart commit by...', pushes, then restarts system"
         )
         buttons_layout.addWidget(restart_btn)
 
-        shutdown_cancel_btn: QPushButton = _create_icon_button(
+        shutdown_cancel_btn = _create_icon_button(
             f"{Icons.SHUTDOWN} {Icons.CANCEL}", "#F59E0B"
         )
         shutdown_cancel_btn.setToolTip(
@@ -111,7 +111,7 @@ def create_power_options_panel(parent=None) -> tuple[QWidget, PowerOptionsSignal
         )
         buttons_layout.addWidget(shutdown_cancel_btn)
 
-        restart_cancel_btn: QPushButton = _create_icon_button(
+        restart_cancel_btn = _create_icon_button(
             f"{Icons.RESTART} {Icons.CANCEL}", "#10B981"
         )
         restart_cancel_btn.setToolTip(
@@ -129,13 +129,13 @@ def create_power_options_panel(parent=None) -> tuple[QWidget, PowerOptionsSignal
         row1 = QHBoxLayout()
         row1.setSpacing(8)
 
-        shutdown_btn: QPushButton = _create_text_button("Shutdown", "#EF4444")
+        shutdown_btn = _create_text_button("Shutdown", "#EF4444")
         shutdown_btn.setToolTip(
             "Commits with 'Shutdown commit by...', pushes, then shuts down system"
         )
         row1.addWidget(shutdown_btn)
 
-        restart_btn: QPushButton = _create_text_button("Restart", "#3B82F6")
+        restart_btn = _create_text_button("Restart", "#3B82F6")
         restart_btn.setToolTip(
             "Commits with 'Restart commit by...', pushes, then restarts system"
         )
@@ -147,17 +147,13 @@ def create_power_options_panel(parent=None) -> tuple[QWidget, PowerOptionsSignal
         row2 = QHBoxLayout()
         row2.setSpacing(8)
 
-        shutdown_cancel_btn: QPushButton = _create_text_button(
-            "Shutdown (Cancel)", "#F59E0B"
-        )
+        shutdown_cancel_btn = _create_text_button("Shutdown (Cancel)", "#F59E0B")
         shutdown_cancel_btn.setToolTip(
             "Commits with 'Shutdown (Cancelled) commit by...', pushes, NO system action"
         )
         row2.addWidget(shutdown_cancel_btn)
 
-        restart_cancel_btn: QPushButton = _create_text_button(
-            "Restart (Cancel)", "#10B981"
-        )
+        restart_cancel_btn = _create_text_button("Restart (Cancel)", "#10B981")
         restart_cancel_btn.setToolTip(
             "Commits with 'Restart (Cancelled) commit by...', pushes, NO system action"
         )
@@ -195,29 +191,45 @@ def create_power_options_panel(parent=None) -> tuple[QWidget, PowerOptionsSignal
     return widget, signals
 
 
+def _hex_to_rgba(hex_color: str, alpha: float) -> str:
+    """
+    Convert a hex color (e.g. '#ff5555') to an rgba() string with alpha.
+    """
+    hex_color = hex_color.lstrip("#")
+    r = int(hex_color[0:2], 16)
+    g = int(hex_color[2:4], 16)
+    b = int(hex_color[4:6], 16)
+    alpha = max(0.0, min(1.0, alpha))
+    return f"rgba({r}, {g}, {b}, {alpha:.2f})"
+
+
 def _create_icon_button(icon: str, color: str) -> QPushButton:
     """Create a modern styled power option button with icon only.
 
     Args:
-        icon: Icon character(s)
-        color: Button accent color for hover/press
+        icon (str):
+            Icon character(s), typically from a Nerd Font or icon font.
+        color (str):
+            Accent color used as the single source for both visual emphasis and
+            background styling. The color is parsed (e.g. hex format) and converted
+            to RGBA with different alpha values for normal, hover, pressed, and
+            disabled states.
 
     Returns:
         QPushButton: Styled button with large icon
     """
     button = QPushButton(icon)
     button.setFixedHeight(40)
-    button.setFont(
-        QFont(FONT_FAMILY, 18, QFont.Weight.Bold)
-    )  # Large font for icon visibility
+    # Large font for icon visibility
+    button.setFont(QFont(FONT_FAMILY, 18, QFont.Weight.Bold))
     button.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
 
     # Clean button style matching settings button
     button.setStyleSheet(
         f"""
         QPushButton {{
-            background-color: rgba(255, 255, 255, 0.04);
-            color: rgba(255, 255, 255, 0.9);
+            background-color: {_hex_to_rgba(color, 0.03)};
+            color: {_hex_to_rgba(color, 0.9)};
             font-weight: bold;
             padding: 4px 8px;
             border: none;
@@ -225,15 +237,17 @@ def _create_icon_button(icon: str, color: str) -> QPushButton:
             white-space: nowrap;
         }}
         QPushButton:hover {{
-            background-color: rgba(255, 255, 255, 0.08);
+            background-color: #222;
             color: {color};
+            border-bottom: 2px solid {color};
+            font-style: unset;
         }}
         QPushButton:pressed {{
-            background-color: rgba(255, 255, 255, 0.15);
+            background-color: {_hex_to_rgba(color, 0.15)};
             color: #ffd700;
         }}
         QPushButton:disabled {{
-            background-color: rgba(255, 255, 255, 0.02);
+            background-color: {_hex_to_rgba(color, 0.02)};
             color: rgba(255, 255, 255, 0.3);
         }}
         """
@@ -247,7 +261,11 @@ def _create_text_button(text: str, color: str) -> QPushButton:
 
     Args:
         text: Button text
-        color: Button accent color for hover/press
+        color (str):
+            Accent color used as the single source for both visual emphasis and
+            background styling. The color is parsed (e.g. hex format) and converted
+            to RGBA with different alpha values for normal, hover, pressed, and
+            disabled states.
 
     Returns:
         QPushButton: Styled button with text
@@ -263,23 +281,26 @@ def _create_text_button(text: str, color: str) -> QPushButton:
     button.setStyleSheet(
         f"""
         QPushButton {{
-            background-color: rgba(255, 255, 255, 0.04);
-            color: rgba(255, 255, 255, 0.9);
+            background-color: {_hex_to_rgba(color, 0.03)};
+            color: {_hex_to_rgba(color, 0.9)};
             font-weight: bold;
-            padding: 4px;
+            padding: 4px 8px;
             border: none;
             border-radius: 6px;
+            white-space: nowrap;
         }}
         QPushButton:hover {{
-            background-color: rgba(255, 255, 255, 0.08);
+            background-color: #222;
             color: {color};
+            border-bottom: 2px solid {color};
+            font-style: unset;
         }}
         QPushButton:pressed {{
-            background-color: rgba(255, 255, 255, 0.15);
+            background-color: {_hex_to_rgba(color, 0.15)};
             color: #ffd700;
         }}
         QPushButton:disabled {{
-            background-color: rgba(255, 255, 255, 0.02);
+            background-color: {_hex_to_rgba(color, 0.02)};
             color: rgba(255, 255, 255, 0.3);
         }}
         """
