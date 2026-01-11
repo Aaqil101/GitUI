@@ -1,14 +1,10 @@
+# ----- Built-In Modules-----
+from pathlib import Path
+
 # ----- PyQt6 Modules -----
-from PyQt6.QtCore import QTimer, Qt
+from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QFont, QIcon
-from PyQt6.QtWidgets import (
-    QDialog,
-    QHBoxLayout,
-    QLabel,
-    QPushButton,
-    QVBoxLayout,
-    QWidget,
-)
+from PyQt6.QtWidgets import QDialog, QHBoxLayout, QLabel, QPushButton, QVBoxLayout
 
 # ----- Config Imports -----
 from core.config import (
@@ -39,7 +35,7 @@ class ExcludeConfirmationDialog(QDialog):
     Auto-skips after timeout if no user response.
     """
 
-    def __init__(self, repo_name: str, parent=None):
+    def __init__(self, repo_name: str, parent=None) -> None:
         """Initialize the exclude confirmation dialog.
 
         Args:
@@ -47,7 +43,7 @@ class ExcludeConfirmationDialog(QDialog):
             parent: Parent widget
         """
         super().__init__(parent)
-        self.repo_name = repo_name
+        self.repo_name: str = repo_name
         self.user_choice = None  # 'push', 'skip', or 'cancel_all'
 
         # Get timeout from settings
@@ -68,7 +64,7 @@ class ExcludeConfirmationDialog(QDialog):
         self.setModal(True)
 
         # Set window icon
-        paths = get_default_paths()
+        paths: dict[str, Path] = get_default_paths()
         self.setWindowIcon(QIcon(str(paths["app_icon"])))
 
         # Main layout
@@ -120,9 +116,7 @@ class ExcludeConfirmationDialog(QDialog):
         main_layout.addWidget(message)
 
         # Countdown label
-        self.countdown_label = QLabel(
-            f"Auto-skipping in {self.time_left} seconds..."
-        )
+        self.countdown_label = QLabel(f"Auto-skipping in {self.time_left} seconds...")
         self.countdown_label.setFont(QFont(FONT_FAMILY, FONT_SIZE_STAT))
         self.countdown_label.setStyleSheet(
             f"color: {COLOR_ORANGE}; padding: 8px 0; font-style: italic;"
@@ -216,7 +210,7 @@ class ExcludeConfirmationDialog(QDialog):
         # Center dialog on screen
         position_center(self)
 
-    def _start_countdown(self):
+    def _start_countdown(self) -> None:
         """Start the countdown timer."""
         self.timer = QTimer()
         self.timer.timeout.connect(self._update_countdown)
@@ -225,7 +219,7 @@ class ExcludeConfirmationDialog(QDialog):
         # Auto-select "skip" after timeout
         QTimer.singleShot(self.timeout_seconds * 1000, self._auto_skip)
 
-    def _update_countdown(self):
+    def _update_countdown(self) -> None:
         """Update countdown label every second."""
         self.time_left -= 1
         if self.time_left >= 0:
@@ -233,12 +227,12 @@ class ExcludeConfirmationDialog(QDialog):
                 f"Auto-skipping in {self.time_left} seconds..."
             )
 
-    def _auto_skip(self):
+    def _auto_skip(self) -> None:
         """Auto-select 'skip' if no user choice made."""
         if self.user_choice is None:
             self._on_choice("skip")
 
-    def _on_choice(self, choice: str):
+    def _on_choice(self, choice: str) -> None:
         """Handle user choice.
 
         Args:
@@ -247,11 +241,11 @@ class ExcludeConfirmationDialog(QDialog):
         if self.user_choice is not None:
             return  # Already made a choice
 
-        self.user_choice = choice
+        self.user_choice: str = choice
         self.timer.stop()
 
         # Update countdown label to show selection
-        choice_labels = {
+        choice_labels: dict[str, str] = {
             "push": "Pushing repository...",
             "skip": "Skipping repository...",
             "cancel_all": "Cancelling all operations...",
