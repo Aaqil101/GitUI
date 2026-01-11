@@ -31,8 +31,50 @@ from utils.icons import Icons
 
 
 # ══════════════════════════════════════════════════════════════════
-# CUSTOM BUTTON CLASSES
+# CUSTOM WIDGET CLASSES
 # ══════════════════════════════════════════════════════════════════
+class ChevronSpinBox(QSpinBox):
+    """QSpinBox with chevron icons in up/down buttons.
+
+    This spinbox adds Nerd Font chevron icons to the increment/decrement buttons
+    by creating overlay labels positioned over the button areas.
+    """
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+
+        # Create labels for chevron icons
+        self._up_label = QLabel(Icons.CHEVRON_UP, self)
+        self._down_label = QLabel(Icons.CHEVRON_DOWN, self)
+
+        # Style the labels
+        for label in (self._up_label, self._down_label):
+            label.setFont(QFont(FONT_FAMILY, 8))
+            label.setStyleSheet(
+                f"color: {THEME_TEXT_SECONDARY}; background: transparent;"
+            )
+            label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+            label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+    def resizeEvent(self, event) -> None:
+        """Reposition chevron labels when spinbox is resized."""
+        super().resizeEvent(event)
+
+        # Get button geometries
+        button_width = 16
+        height = self.height()
+
+        # Position up arrow in top-right
+        self._up_label.setGeometry(
+            self.width() - button_width, 0, button_width, height // 2
+        )
+
+        # Position down arrow in bottom-right
+        self._down_label.setGeometry(
+            self.width() - button_width, height // 2, button_width, height // 2
+        )
+
+
 class HoverIconButton(QPushButton):
     """QPushButton subclass that changes icon on hover and press states.
 
@@ -289,7 +331,7 @@ def create_spinbox_row(
     layout.addWidget(label_widget, 1)
 
     # Spinbox
-    spinbox = QSpinBox()
+    spinbox = ChevronSpinBox()
     spinbox.setFont(QFont(FONT_FAMILY, FONT_SIZE_STAT))
     spinbox.setRange(min_val, max_val)
     spinbox.setValue(value)
@@ -305,7 +347,10 @@ def create_spinbox_row(
             padding: 4px 8px;
         }}
         QSpinBox:focus {{
-            border: 1px solid {COLOR_ORANGE};
+            background-color: #222;
+            border-bottom: 2px solid {COLOR_DARK_BLUE};
+            border-left: 2px solid {COLOR_DARK_BLUE};
+            font-style: unset;
         }}
         QSpinBox::up-button, QSpinBox::down-button {{
             background-color: rgba(255, 255, 255, 0.04);
@@ -314,6 +359,11 @@ def create_spinbox_row(
         }}
         QSpinBox::up-button:hover, QSpinBox::down-button:hover {{
             background-color: rgba(255, 255, 255, 0.08);
+        }}
+        QSpinBox::up-arrow, QSpinBox::down-arrow {{
+            image: none;
+            width: 0;
+            height: 0;
         }}
         """
     )
@@ -380,6 +430,11 @@ def create_checkbox_row(
         }}
         QCheckBox::indicator:hover {{
             border: 1px solid {COLOR_ORANGE};
+        }}
+        QCheckBox:focus {{
+            background-color: rgba(255, 158, 100, 0.08);
+            color: {THEME_TEXT_PRIMARY};
+            outline: none;
         }}
         """
     )
@@ -450,6 +505,9 @@ def create_list_manager(
     list_widget.setFont(QFont(FONT_FAMILY, FONT_SIZE_STAT))
     list_widget.setMinimumHeight(120)
     list_widget.setMaximumHeight(200)
+    list_widget.setSelectionMode(
+        QListWidget.SelectionMode.ExtendedSelection
+    )  # Enable multi-selection
     list_widget.setStyleSheet(
         f"""
         QListWidget {{
@@ -466,7 +524,17 @@ def create_list_manager(
             background-color: rgba(122, 162, 247, 0.3);
         }}
         QListWidget::item:hover {{
+            color: {THEME_TEXT_PRIMARY};
             background-color: rgba(255, 255, 255, 0.06);
+        }}
+        QListWidget::item:selected:!active {{
+            color: {THEME_TEXT_PRIMARY};
+            background: rgba(255, 255, 255, 0.08);
+        }}
+        QListWidget:focus {{
+            color: {THEME_TEXT_PRIMARY};
+            background-color: rgba(255, 255, 255, 0.06);
+            outline: none;
         }}
         """
     )
@@ -485,7 +553,12 @@ def create_list_manager(
     buttons_layout.setSpacing(8)
 
     # Add button
-    add_btn = QPushButton(f"{Icons.ADD}  Add")
+    add_btn = HoverIconButton(
+        normal_icon=Icons.ADD,
+        hover_icon=Icons.ADDED,
+        pressed_icon=Icons.ADDED_FOLDER,
+        text="Add",
+    )
     add_btn.setFont(QFont(FONT_FAMILY, FONT_SIZE_STAT))
     add_btn.setFixedHeight(28)
     add_btn.setStyleSheet(
@@ -498,10 +571,15 @@ def create_list_manager(
         }}
         QPushButton:hover {{
             background-color: rgba(255, 255, 255, 0.08);
-            border: 1px solid {COLOR_ORANGE};
+            border-bottom: 2px solid {COLOR_DARK_BLUE};
         }}
         QPushButton:pressed {{
             background-color: rgba(255, 255, 255, 0.12);
+        }}
+        QPushButton:focus {{
+            background-color: rgba(255, 255, 255, 0.08);
+            border-bottom: 2px solid {COLOR_DARK_BLUE};
+            outline: none;
         }}
         """
     )
@@ -509,7 +587,12 @@ def create_list_manager(
     buttons_layout.addWidget(add_btn)
 
     # Remove button
-    remove_btn = QPushButton(f"{Icons.TRASH}  Remove")
+    remove_btn = HoverIconButton(
+        normal_icon=Icons.TRASH_OUTLINE,
+        hover_icon=Icons.TRASH,
+        pressed_icon=Icons.TRASH_OCT,
+        text="Remove",
+    )
     remove_btn.setFont(QFont(FONT_FAMILY, FONT_SIZE_STAT))
     remove_btn.setFixedHeight(28)
     remove_btn.setStyleSheet(
@@ -517,13 +600,12 @@ def create_list_manager(
         QPushButton {{
             background-color: rgba(247, 118, 142, 0.1);
             color: #f7768e;
-            border: 1px solid rgba(247, 118, 142, 0.3);
             border-radius: 4px;
             padding: 4px 12px;
         }}
         QPushButton:hover {{
             background-color: rgba(247, 118, 142, 0.2);
-            border: 1px solid #f7768e;
+            border-bottom: 2px solid #f7768e;
         }}
         QPushButton:pressed {{
             background-color: rgba(247, 118, 142, 0.3);
@@ -531,15 +613,33 @@ def create_list_manager(
         QPushButton:disabled {{
             background-color: rgba(255, 255, 255, 0.02);
             color: rgba(255, 255, 255, 0.3);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+        }}
+        QPushButton:focus {{
+            background-color: rgba(247, 118, 142, 0.2);
+            border-bottom: 2px solid #f7768e;
+            outline: none;
         }}
         """
     )
 
     def on_remove() -> None:
-        current_item = list_widget.currentItem()
-        if current_item:
-            remove_callback(list_widget, current_item.text())
+        selected_items = list_widget.selectedItems()
+        if selected_items:
+            # Get the row of the first selected item to determine next selection
+            first_row: int = list_widget.row(selected_items[0])
+            total_items: int = list_widget.count()
+
+            # Get all selected item texts
+            selected_texts: list[str] = [item.text() for item in selected_items]
+            # Pass all selected items to callback
+            remove_callback(list_widget, selected_texts)
+
+            # Select next item after deletion
+            new_count: int = list_widget.count()
+            if new_count > 0:
+                # Try to select the item at the same position, or the last item if at the end
+                next_row: int = min(first_row, new_count - 1)
+                list_widget.setCurrentRow(next_row)
 
     remove_btn.clicked.connect(on_remove)
     buttons_layout.addWidget(remove_btn)
@@ -550,7 +650,13 @@ def create_list_manager(
 
     # Enable/disable remove button based on selection
     def update_remove_button() -> None:
-        remove_btn.setEnabled(list_widget.currentItem() is not None)
+        selected_count: int = len(list_widget.selectedItems())
+        remove_btn.setEnabled(selected_count > 0)
+        # Update button text to show count
+        if selected_count > 1:
+            remove_btn.setText(f"{Icons.TRASH} Remove ({selected_count})")
+        else:
+            remove_btn.setText(f"{Icons.TRASH_OUTLINE} Remove")
 
     list_widget.itemSelectionChanged.connect(update_remove_button)
     update_remove_button()  # Initial state

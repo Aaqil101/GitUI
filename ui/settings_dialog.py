@@ -5,14 +5,17 @@ from pathlib import Path
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QCursor, QFont, QIcon
 from PyQt6.QtWidgets import (
+    QAbstractItemView,
     QDialog,
     QFileDialog,
     QHBoxLayout,
     QLabel,
+    QListView,
     QMessageBox,
     QPushButton,
     QScrollArea,
     QTabWidget,
+    QTreeView,
     QVBoxLayout,
     QWidget,
 )
@@ -251,9 +254,13 @@ class SettingsDialog(QDialog):
             QWidget: Tab label widget with separate icon and text
         """
         widget = QWidget()
+        widget.setFixedWidth(187)
         layout = QHBoxLayout(widget)
         layout.setContentsMargins(8, 4, 8, 4)
         layout.setSpacing(8)
+
+        # Add left stretch to center content
+        layout.addStretch()
 
         # Icon label with larger font
         icon_label = QLabel(icon)
@@ -264,6 +271,9 @@ class SettingsDialog(QDialog):
         text_label = QLabel(text)
         text_label.setFont(QFont(FONT_FAMILY, FONT_SIZE_STAT))
         layout.addWidget(text_label)
+
+        # Add right stretch to center content
+        layout.addStretch()
 
         return widget
 
@@ -282,7 +292,6 @@ class SettingsDialog(QDialog):
             QTabWidget::pane {{
                 background-color: {THEME_BG_PRIMARY};
             }}
-
             QTabBar::tab {{
                 background-color: {THEME_BG_SECONDARY};
                 color: {THEME_TEXT_SECONDARY};
@@ -290,22 +299,25 @@ class SettingsDialog(QDialog):
                 margin-right: 2px;
                 font-weight: normal;
             }}
-
             QTabBar::tab:hover {{
                 background-color: rgba(122, 162, 247, 0.1);
                 color: {THEME_TEXT_PRIMARY};
             }}
-
             QTabBar::tab:selected {{
                 background-color: rgba(122, 162, 247, 0.2);
                 color: {THEME_TEXT_PRIMARY};
                 font-weight: bold;
             }}
+            QTabBar:focus {{
+                background-color: rgba(122, 162, 247, 0.1);
+                color: {THEME_TEXT_PRIMARY};
+                outline: none;
+            }}
             """
         )
 
         # Add tabs with custom widgets for larger icons
-        idx = tab_widget.addTab(self._create_general_page(), "")
+        idx: int = tab_widget.addTab(self._create_general_page(), "")
         tab_widget.tabBar().setTabButton(
             idx,
             tab_widget.tabBar().ButtonPosition.LeftSide,
@@ -689,7 +701,7 @@ class SettingsDialog(QDialog):
         icon_only_widget, icon_only_check = create_checkbox_row(
             "Icon-Only Power Buttons",
             self.current_settings["appearance"]["power_buttons_icon_only"],
-            "Show only icons in power buttons (Git Push). Uncheck to show icon + text.",
+            "Show only icons in power buttons (Git Push). Uncheck to show only text.",
         )
         self.ui_components["power_buttons_icon_only"] = icon_only_check
         layout.addWidget(icon_only_widget)
@@ -786,7 +798,6 @@ class SettingsDialog(QDialog):
             QPushButton {{
                 background-color: rgba(247, 118, 142, 0.1);
                 color: #f7768e;
-                border: 1px solid rgba(247, 118, 142, 0.3);
                 border-radius: 4px;
                 padding: 6px 16px;
             }}
@@ -797,6 +808,11 @@ class SettingsDialog(QDialog):
             QPushButton:pressed {{
                 background-color: rgba(247, 118, 142, 0.3);
             }}
+            QPushButton:focus {{
+                background-color: rgba(247, 118, 142, 0.2);
+                border-bottom: 2px solid #f7768e;
+                outline: none;
+            }}
             """
         )
         reset_btn.clicked.connect(self._on_reset_clicked)
@@ -806,7 +822,7 @@ class SettingsDialog(QDialog):
 
         # Cancel button
         cancel_btn = HoverIconButton(
-            normal_icon=Icons.CANCEL_OUTLINE, hover_icon=Icons.CANCEL, text="CANCEL"
+            normal_icon=Icons.CANCEL_OUTLINE, hover_icon=Icons.CANCEL, text="Cancel"
         )
         cancel_btn.setFont(QFont(FONT_FAMILY, FONT_SIZE_STAT))
         cancel_btn.setFixedHeight(36)
@@ -816,7 +832,6 @@ class SettingsDialog(QDialog):
             QPushButton {{
                 background-color: rgba(255, 255, 255, 0.04);
                 color: {THEME_TEXT_PRIMARY};
-                border: 1px solid rgba(255, 255, 255, 0.1);
                 border-radius: 4px;
                 padding: 6px 16px;
             }}
@@ -826,6 +841,11 @@ class SettingsDialog(QDialog):
             }}
             QPushButton:pressed {{
                 background-color: rgba(255, 255, 255, 0.12);
+            }}
+            QPushButton:focus {{
+                background-color: rgba(255, 255, 255, 0.08);
+                border-bottom: 2px solid {COLOR_DARK_BLUE};
+                outline: none;
             }}
             """
         )
@@ -848,10 +868,8 @@ class SettingsDialog(QDialog):
             QPushButton {{
                 background-color: rgba(158, 206, 106, 0.2);
                 color: #9ece6a;
-                border: 1px solid rgba(158, 206, 106, 0.5);
                 border-radius: 4px;
                 padding: 6px 16px;
-                font-weight: bold;
             }}
             QPushButton:hover {{
                 background-color: rgba(158, 206, 106, 0.3);
@@ -859,6 +877,11 @@ class SettingsDialog(QDialog):
             }}
             QPushButton:pressed {{
                 background-color: rgba(158, 206, 106, 0.4);
+            }}
+            QPushButton:focus {{
+                background-color: rgba(158, 206, 106, 0.3);
+                border-bottom: 2px solid #9ece6a;
+                outline: none;
             }}
             """
         )
@@ -869,93 +892,173 @@ class SettingsDialog(QDialog):
         return bar
 
     def _on_add_custom_path(self, list_widget) -> None:
-        """Handle adding a custom repository path.
+        """Handle adding custom repository paths (supports multiple selection).
 
         Args:
-            list_widget: QListWidget to add path to
+            list_widget: QListWidget to add paths to
         """
         from PyQt6.QtWidgets import QListWidgetItem
 
-        folder: str = QFileDialog.getExistingDirectory(
-            self, "Select Custom Repository Folder"
-        )
-        if folder:
-            # Validate path
-            is_valid, error_msg = self.custom_paths_manager.validate_path(folder)
-            if not is_valid:
-                QMessageBox.warning(self, "Invalid Path", error_msg)
-                return
+        # Create file dialog with multi-selection enabled
+        dialog = QFileDialog(self)
+        dialog.setWindowTitle("Select Custom Repository Folder(s)")
+        dialog.setFileMode(QFileDialog.FileMode.Directory)
+        dialog.setOption(QFileDialog.Option.DontUseNativeDialog, True)
+        dialog.setOption(QFileDialog.Option.ShowDirsOnly, True)
 
-            # Check if already exists
+        # Enable multi-selection by getting the list view and setting selection mode
+        list_view = dialog.findChild(QListView, "listView")
+        if list_view:
+            list_view.setSelectionMode(
+                QAbstractItemView.SelectionMode.ExtendedSelection
+            )
+        tree_view = dialog.findChild(QTreeView)
+        if tree_view:
+            tree_view.setSelectionMode(
+                QAbstractItemView.SelectionMode.ExtendedSelection
+            )
+
+        if dialog.exec() == QFileDialog.DialogCode.Accepted:
+            folders: list[str] = dialog.selectedFiles()
+
+            # Get existing items
             existing_items = [
                 list_widget.item(i).text() for i in range(list_widget.count())
             ]
-            if folder in existing_items:
-                QMessageBox.warning(
-                    self, "Duplicate Path", "This path is already in the list."
-                )
-                return
 
-            # Add to list widget
-            item = QListWidgetItem(folder)
-            list_widget.addItem(item)
+            # Track results
+            added_count = 0
+            invalid_paths = []
+            duplicate_paths = []
 
-    def _on_remove_custom_path(self, list_widget, path: str) -> None:
-        """Handle removing a custom repository path.
+            for folder in folders:
+                # Check if already exists
+                if folder in existing_items:
+                    duplicate_paths.append(folder)
+                    continue
+
+                # Validate path
+                is_valid, error_msg = self.custom_paths_manager.validate_path(folder)
+                if not is_valid:
+                    invalid_paths.append(f"{folder}: {error_msg}")
+                    continue
+
+                # Add to list widget
+                item = QListWidgetItem(folder)
+                list_widget.addItem(item)
+                existing_items.append(folder)  # Track for duplicate checking
+                added_count += 1
+
+            # Show summary if there were any issues
+            messages = []
+            if added_count > 0:
+                messages.append(f"Successfully added {added_count} folder(s).")
+            if duplicate_paths:
+                messages.append(f"\nSkipped {len(duplicate_paths)} duplicate path(s).")
+            if invalid_paths:
+                messages.append(f"\nSkipped {len(invalid_paths)} invalid path(s):")
+                for invalid in invalid_paths[:5]:  # Show max 5 errors
+                    messages.append(f"  • {invalid}")
+                if len(invalid_paths) > 5:
+                    messages.append(f"  ... and {len(invalid_paths) - 5} more")
+
+            if messages:
+                if invalid_paths or (duplicate_paths and added_count == 0):
+                    QMessageBox.warning(self, "Add Folders", "\n".join(messages))
+                else:
+                    QMessageBox.information(self, "Add Folders", "\n".join(messages))
+
+    def _on_remove_custom_path(self, list_widget, paths: list[str]) -> None:
+        """Handle removing custom repository paths (supports multiple selection).
 
         Args:
             list_widget: QListWidget to remove from
-            path: Path to remove
+            paths: List of paths to remove
         """
-        # Find and remove item
-        for i in range(list_widget.count()):
-            if list_widget.item(i).text() == path:
-                list_widget.takeItem(i)
-                break
+        # Remove items in reverse order to avoid index issues
+        for path in paths:
+            for i in range(list_widget.count() - 1, -1, -1):
+                if list_widget.item(i).text() == path:
+                    list_widget.takeItem(i)
+                    break
 
     def _on_add_exclusion(self, list_widget) -> None:
-        """Handle adding a repository exclusion.
+        """Handle adding repository exclusions (supports multiple, comma-separated).
 
         Args:
-            list_widget: QListWidget to add exclusion to
+            list_widget: QListWidget to add exclusions to
         """
-        from PyQt6.QtWidgets import QInputDialog, QListWidgetItem
+        from PyQt6.QtWidgets import QListWidgetItem
 
-        repo_name, ok = QInputDialog.getText(
-            self,
-            "Add Excluded Repository",
-            "Enter repository name (not full path):",
-        )
+        from ui.add_exclusion_dialog import AddExclusionDialog
 
-        if ok and repo_name:
-            # Check if already exists
+        # Show custom dialog
+        dialog = AddExclusionDialog(self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            repo_names_input = dialog.get_input_text()
+        else:
+            return
+
+        if repo_names_input:
+            # Split by comma and clean up whitespace
+            repo_names = [
+                name.strip() for name in repo_names_input.split(",") if name.strip()
+            ]
+
+            if not repo_names:
+                return
+
+            # Get existing items
             existing_items = [
                 list_widget.item(i).text() for i in range(list_widget.count())
             ]
-            if repo_name in existing_items:
-                QMessageBox.warning(
-                    self,
-                    "Duplicate Exclusion",
-                    "This repository is already excluded.",
-                )
-                return
 
-            # Add to list widget
-            item = QListWidgetItem(repo_name)
-            list_widget.addItem(item)
+            # Track results
+            added_count = 0
+            duplicate_repos = []
 
-    def _on_remove_exclusion(self, list_widget, repo_name: str) -> None:
-        """Handle removing a repository exclusion.
+            for repo_name in repo_names:
+                # Check if already exists
+                if repo_name in existing_items:
+                    duplicate_repos.append(repo_name)
+                    continue
+
+                # Add to list widget
+                item = QListWidgetItem(repo_name)
+                list_widget.addItem(item)
+                existing_items.append(repo_name)  # Track for duplicate checking
+                added_count += 1
+
+            # Show summary if there were any issues
+            messages = []
+            if added_count > 0:
+                messages.append(f"Successfully added {added_count} exclusion(s).")
+            if duplicate_repos:
+                messages.append(f"\nSkipped {len(duplicate_repos)} duplicate(s):")
+                for dup in duplicate_repos[:5]:  # Show max 5
+                    messages.append(f"  • {dup}")
+                if len(duplicate_repos) > 5:
+                    messages.append(f"  ... and {len(duplicate_repos) - 5} more")
+
+            if messages:
+                if duplicate_repos and added_count == 0:
+                    QMessageBox.warning(self, "Add Exclusions", "\n".join(messages))
+                else:
+                    QMessageBox.information(self, "Add Exclusions", "\n".join(messages))
+
+    def _on_remove_exclusion(self, list_widget, repo_names: list[str]) -> None:
+        """Handle removing repository exclusions (supports multiple selection).
 
         Args:
             list_widget: QListWidget to remove from
-            repo_name: Repository name to remove
+            repo_names: List of repository names to remove
         """
-        # Find and remove item
-        for i in range(list_widget.count()):
-            if list_widget.item(i).text() == repo_name:
-                list_widget.takeItem(i)
-                break
+        # Remove items in reverse order to avoid index issues
+        for repo_name in repo_names:
+            for i in range(list_widget.count() - 1, -1, -1):
+                if list_widget.item(i).text() == repo_name:
+                    list_widget.takeItem(i)
+                    break
 
     def _on_save_clicked(self) -> None:
         """Handle Save button click."""
