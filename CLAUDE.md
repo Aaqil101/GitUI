@@ -74,6 +74,24 @@ Settings are stored in JSON format in `%appdata%\GitUI\`:
 
 All managers use singleton patterns for consistent state management.
 
+### Settings Loading
+
+Settings are loaded into the application through a two-stage process:
+
+1. **At Startup ([\_\_init\_\_.py](__init__.py)):**
+   - `SettingsManager()` is initialized (loads settings from JSON)
+   - `load_settings_into_config()` is called to update global config constants
+   - This applies restart-required settings (window size, fonts, delays, etc.)
+
+2. **At Runtime (immediate-effect settings):**
+   - Components read settings directly from `SettingsManager().get_settings()` when needed
+   - Examples: power countdown, exclusion confirmation timeout, icon-only mode
+   - This ensures settings take effect immediately without restart
+
+**Key Files:**
+- [core/config.py](core/config.py) - Defines config constants and `load_settings_into_config()` function
+- [core/settings_manager.py](core/settings_manager.py) - Manages settings JSON file operations
+
 ### Settings Categories
 
 #### General
@@ -304,10 +322,11 @@ See [docs/SETTINGS_GUIDE.md](docs/SETTINGS_GUIDE.md) for step-by-step instructio
 
 **Integration:**
 
--   [**init**.py](__init__.py) - CLI entry point for settings dialog (--settings flag)
--   [core/config.py](core/config.py) - Uses GitHubPathManager for get_default_paths()
+-   [\_\_init\_\_.py](__init__.py) - CLI entry point, calls `load_settings_into_config()` at startup
+-   [core/config.py](core/config.py) - Config constants and `load_settings_into_config()` function (~250 lines)
+-   [ui/power_options_panel.py](ui/power_options_panel.py) - Reads power countdown from settings
 -   [scanners/git_push_scanner.py](scanners/git_push_scanner.py) - Scans custom paths
--   [scanners/git_pull_scanner.py](scanners/git_pull_scanner.py) - Scans custom paths
+-   [scanners/git_pull_scanner.py](scanners/git_pull_scanner.py) - Scans custom paths, reads exclusion settings
 -   [core/push_runner.py](core/push_runner.py) - Exclusion confirmation dialog integration
 -   [workers/git_push_worker.py](workers/git_push_worker.py) - Extended result types for exclusions
 
