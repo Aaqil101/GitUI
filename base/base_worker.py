@@ -138,8 +138,8 @@ class BaseWorker(QRunnable):
                 return
 
             # Template method: subclasses provide command
-            command = self._get_powershell_command()
-            timeout = self._get_timeout()
+            command: str = self._get_powershell_command()
+            timeout: int = self._get_timeout()
 
             # Execute PowerShell
             result = self._run_powershell(
@@ -221,11 +221,7 @@ class BaseScannerWorker(BaseWorker):
 
         try:
             result = self._run_powershell(count_command, timeout=10)
-            return (
-                int(result.stdout.strip())
-                if result.stdout.strip().isdigit()
-                else 0
-            )
+            return int(result.stdout.strip()) if result.stdout.strip().isdigit() else 0
         except Exception:
             return 0
 
@@ -344,9 +340,7 @@ class BaseOperationWorker(BaseWorker):
             Result object created by subclass
         """
         if not output:
-            return self._get_error_result(
-                "No output from PowerShell script", duration
-            )
+            return self._get_error_result("No output from PowerShell script", duration)
 
         data = json.loads(output)
         return self._create_result_from_data(data)
