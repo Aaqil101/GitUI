@@ -12,6 +12,8 @@
         "pathlib",
         "pyrcc",
         "qproperty",
+        "qresource",
+        "repositor",
         "rgba",
         "Spinbox",
         "spinboxes",
@@ -21,6 +23,7 @@
         "uead",
         "ueadc",
         "ueae",
+        "ueefd",
         "unpushed",
         "userprofile",
         "venv"
