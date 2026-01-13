@@ -7,10 +7,13 @@ class Icons:
 
     # Git
     GIT: str = "\udb80\udea2"  # 󰊢
+    REPOSITORY: str = "\uea62"  # 
     GIT_BRANCH: str = "\ue0a0"  # 
     GIT_COMMIT: str = "\uf417"  # 
     GIT_PULL: str = "\ueb40"  # 
+    GIT_PUSH_OCT: str = "\uf403"  # 
     GIT_PUSH: str = "\ueb41"  # 
+    GIT_PUSH_FORCE: str = "\ueb3f"  # 
 
     # Status
     CHECK: str = "\uf00c"  # ✓
@@ -63,6 +66,10 @@ class Icons:
     TRASH_OUTLINE: str = "\udb82\ude7a"  # 󰩺
     TRASH_OCT: str = "\uf48e"  # 
     SKIP: str = "\uf517"  # 
+    SKIP_FILL: str = "\uf518"  # 
+    MANUAL: str = "\udb86\udc2b"  # 󱠫
+    MANUAL_OUTLINE: str = "\udb86\udc2e"  # 󱠮
+    MANUAL_PRESSED: str = "\ueefd"  # 
     USER: str = "\uf007"  # 
     CHEVRON_DOWN: str = "\uf078"  # 
     CHEVRON_UP: str = "\uf077"  # 
