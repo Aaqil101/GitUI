@@ -325,3 +325,41 @@ class LogManager:
             pass
 
         return stats
+
+    def auto_delete_old_logs(self) -> tuple[bool, int]:
+        """Automatically delete old logs based on settings.
+
+        Reads the log_auto_delete setting and deletes logs older than the
+        configured threshold. Called at application startup.
+
+        Returns:
+            tuple: (success, files_deleted)
+                - success: True if operation completed successfully
+                - files_deleted: Number of log files deleted
+        """
+        from core.config import LogAutoDelete
+        from core.settings_manager import SettingsManager
+
+        try:
+            settings = SettingsManager().get_settings()
+            auto_delete_setting = settings.get("advanced", {}).get(
+                "log_auto_delete", "disabled"
+            )
+
+            # Convert setting to enum
+            delete_option = LogAutoDelete.from_string(auto_delete_setting)
+
+            # Get number of days
+            days = delete_option.get_days()
+
+            # If disabled, return early
+            if days is None:
+                return True, 0
+
+            # Delete logs older than specified days
+            success, files_deleted, _ = self.clear_logs(days=days)
+            return success, files_deleted
+
+        except Exception as e:
+            print(f"Error in auto_delete_old_logs: {e}")
+            return False, 0

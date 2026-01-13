@@ -109,7 +109,7 @@ class AddExclusionDialog(QDialog):
 
         # Icon
         icon_label = QLabel(Icons.EXCLUDE)
-        icon_label.setFont(QFont(FONT_FAMILY, 18))
+        icon_label.setFont(QFont(FONT_FAMILY, 17))
         icon_label.setStyleSheet(f"color: {COLOR_ORANGE};")
         layout.addWidget(icon_label)
 
@@ -163,13 +163,15 @@ class AddExclusionDialog(QDialog):
                 padding: 10px 12px;
                 border: 2px solid transparent;
             }}
-            QLineEdit:focus {{
-                background-color: rgba(255, 255, 255, 0.06);
-                border: 2px solid {COLOR_DARK_BLUE};
-            }}
             QLineEdit::placeholder {{
                 color: {THEME_TEXT_SECONDARY};
                 font-style: italic;
+            }}
+            QLineEdit:focus {{
+                background-color: #222;
+                border-bottom: 2px solid {COLOR_DARK_BLUE};
+                border-right: 2px solid {COLOR_DARK_BLUE};
+                font-style: unset;
             }}
             """
         )
@@ -214,6 +216,11 @@ class AddExclusionDialog(QDialog):
             QPushButton:pressed {{
                 background-color: rgba(255, 255, 255, 0.12);
             }}
+            QPushButton:focus {{
+                background-color: rgba(255, 255, 255, 0.08);
+                border-bottom: 2px solid {COLOR_DARK_BLUE};
+                outline: none;
+            }}
             """
         )
         cancel_btn.clicked.connect(self.reject)
@@ -244,6 +251,11 @@ class AddExclusionDialog(QDialog):
             }}
             QPushButton:pressed {{
                 background-color: rgba(158, 206, 106, 0.4);
+            }}
+            QPushButton:focus {{
+                background-color: rgba(158, 206, 106, 0.3);
+                border-bottom: 2px solid #9ece6a;
+                outline: none;
             }}
             """
         )

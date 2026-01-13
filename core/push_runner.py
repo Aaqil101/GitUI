@@ -9,12 +9,15 @@ from PyQt6.QtWidgets import QLabel, QWidget
 # ----- Core Imports -----
 from core.base_runner import BaseGitRunner
 from core.config import (
-    COLOR_GREEN,
-    OPERATIONS_START_DELAY,
     AUTO_CLOSE_DELAY,
     AUTO_CLOSE_NO_REPOS_DELAY,
+    COLOR_GREEN,
+    OPERATIONS_START_DELAY,
     THEME_TEXT_DIM,
 )
+
+# ----- Workers Imports -----
+from scanners.git_push_scanner import PowerShellScannerWorker, RepoStatus, ScanResult
 
 # ----- UI Imports -----
 from ui.power_options_panel import create_power_options_panel
@@ -22,9 +25,6 @@ from ui.power_options_panel import create_power_options_panel
 # ----- Utils Imports -----
 from utils.color import Color
 from utils.icons import Icons
-
-# ----- Workers Imports -----
-from scanners.git_push_scanner import PowerShellScannerWorker, RepoStatus, ScanResult
 from workers.git_push_worker import GitPushWorker, PushResult
 
 
@@ -47,7 +47,7 @@ class GitPushRunner(BaseGitRunner):
         """Return push-specific configuration."""
         return {
             "title": "Git Push Runner",
-            "icon": Icons.GIT_PUSH,
+            "icon": Icons.GIT_PUSH_OCT,
             "header_text": "Repositories to Push",
             "stat_labels": {
                 "repos": "Repos with Changes",
@@ -174,8 +174,12 @@ class GitPushRunner(BaseGitRunner):
     def _show_power_options_panel(self) -> None:
         """Show the power options panel in the left sidebar."""
         if self.power_options_panel is None and self.left_panel_layout:
-            self.power_options_panel, self.power_options_signals = create_power_options_panel(self)
-            self.power_options_signals.option_selected.connect(self._on_power_option_selected)
+            self.power_options_panel, self.power_options_signals = (
+                create_power_options_panel(self)
+            )
+            self.power_options_signals.option_selected.connect(
+                self._on_power_option_selected
+            )
 
             # Insert panel before the last item (stretch)
             self.left_panel_layout.insertWidget(
@@ -187,6 +191,7 @@ class GitPushRunner(BaseGitRunner):
             self.setFixedSize(self.width(), 800)
             # Re-center window after resize
             from utils.center import position_center
+
             position_center(self)
 
             self.power_options_panel.setVisible(True)
@@ -239,8 +244,9 @@ class GitPushRunner(BaseGitRunner):
     def _execute_push(self, row: int, repo_name: str, repo_path: str) -> None:
         """Execute a single push operation."""
         # Check if repository is excluded
-        from core.exclude_manager import ExcludeManager
         from pathlib import Path
+
+        from core.exclude_manager import ExcludeManager
 
         exclude_mgr = ExcludeManager()
         repo_folder_name = Path(repo_path).name
@@ -249,7 +255,7 @@ class GitPushRunner(BaseGitRunner):
             # Show exclusion confirmation dialog
             from ui.exclude_confirmation_dialog import ExcludeConfirmationDialog
 
-            dialog = ExcludeConfirmationDialog(repo_folder_name, self)
+            dialog = ExcludeConfirmationDialog(repo_folder_name, self, self.testing)
             dialog.exec()
             choice = dialog.get_choice()
 
@@ -264,14 +270,14 @@ class GitPushRunner(BaseGitRunner):
                 )
                 self._on_push_finished(row, result)
                 return
-            elif choice == "cancel_all":
-                # Cancel all remaining operations
-                self._cancel_all_operations()
+            elif choice == "manual_push":
+                # Show manual push instructions
+                self._show_manual_push_dialog(repo_name, repo_path)
                 result = PushResult(
-                    status="CANCELLED",
+                    status="SKIPPED",
                     repo_name=repo_name,
                     repo_path=repo_path,
-                    error_message="Cancelled by user",
+                    error_message="User chose manual push",
                     is_excluded=True,
                 )
                 self._on_push_finished(row, result)
@@ -303,19 +309,26 @@ class GitPushRunner(BaseGitRunner):
             # Fallback (should never happen)
             return "Shutdown"
 
-    def _cancel_all_operations(self):
-        """Cancel all remaining push operations."""
-        # Set flag to prevent more operations from starting
-        self.is_cancelling = True
+    def _show_manual_push_dialog(self, repo_name: str, repo_path: str) -> None:
+        """Show dialog with instructions for manual push.
 
-        # Mark all pending cards as cancelled
-        for row, card in self.cards.items():
-            if card.status == "QUEUED":
-                card.set_status("CANCELLED")
-                self.completed_count += 1
-                self.failed_count += 1
+        Args:
+            repo_name: Repository name
+            repo_path: Full path to repository
+        """
+        from PyQt6.QtWidgets import QMessageBox
 
-        self._update_operation_stats(self.success_count, self.failed_count)
+        msg_box = QMessageBox(self)
+        msg_box.setWindowTitle("Manual Push Required")
+        msg_box.setIcon(QMessageBox.Icon.Information)
+        msg_box.setText(
+            f"Please manually push changes from the following repository:\n\n"
+            f"Repository: {repo_name}\n"
+            f"Path: {repo_path}\n\n"
+            f"You can use your preferred Git client or command line to push the changes."
+        )
+        msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
+        msg_box.exec()
 
         # Check if we should complete
         if self.completed_count >= self.total_count:
@@ -326,7 +339,9 @@ class GitPushRunner(BaseGitRunner):
         # Log the operation result
         from core.log_manager import LogManager
 
-        commit_prefix = self._get_commit_prefix() if hasattr(self, "power_option") else ""
+        commit_prefix = (
+            self._get_commit_prefix() if hasattr(self, "power_option") else ""
+        )
         LogManager().log_push_operation(result, commit_prefix)
 
         # Map result status to card status
@@ -358,7 +373,7 @@ class GitPushRunner(BaseGitRunner):
     def _handle_completion(self) -> None:
         """Handle completion of all push operations and execute power action."""
         # Check if failed_count exists (it won't in test mode)
-        all_successful = getattr(self, 'failed_count', 0) == 0
+        all_successful = getattr(self, "failed_count", 0) == 0
 
         if self.testing:
             # Test mode - just show what would happen
@@ -416,6 +431,36 @@ class GitPushRunner(BaseGitRunner):
 
     def _simulate_transitions(self) -> None:
         """Simulate status transitions for test mode."""
+        # Simulate exclusion dialog if any repos are excluded
+        from core.exclude_manager import ExcludeManager
+
+        exclude_mgr = ExcludeManager()
+        excluded_repos = exclude_mgr.get_excluded_repos()
+
+        # If there are excluded repos, show dialog for the first test repo that matches
+        if excluded_repos:
+            test_repo_names = [
+                "startup-shutdown",
+                "dotfiles",
+                "nvim-config",
+                "portfolio-site",
+                "scripts-collection",
+                "api-project",
+            ]
+            for repo_name in test_repo_names:
+                if exclude_mgr.is_excluded(repo_name):
+                    # Show exclusion confirmation dialog for this repo
+                    from ui.exclude_confirmation_dialog import ExcludeConfirmationDialog
+
+                    dialog = ExcludeConfirmationDialog(repo_name, self, self.testing)
+                    dialog.exec()
+                    choice = dialog.get_choice()
+
+                    print(
+                        f"[TEST MODE] Exclusion dialog result for {repo_name}: {choice}"
+                    )
+                    break  # Only show dialog for first excluded repo
+
         # Call parent implementation for card transitions
         super()._simulate_transitions()
 

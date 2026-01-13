@@ -143,7 +143,7 @@ class SettingsManager:
                 "window_width": 920,
                 "window_height": 620,
                 "auto_close_delay": 1000,
-                "auto_close_no_repos_delay": 2000,
+                "auto_close_no_repos_delay": 500,
             },
             "git_operations": {
                 "powershell_throttle_limit": 30,
@@ -168,5 +168,6 @@ class SettingsManager:
                 "test_mode_default": False,
                 "scan_start_delay": 0,
                 "operations_start_delay": 100,
+                "log_auto_delete": "disabled",
             },
         }

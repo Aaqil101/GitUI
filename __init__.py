@@ -24,6 +24,19 @@ def main() -> None:
     # Initialize settings manager (loads settings from file)
     SettingsManager()
 
+    # Load settings into config constants
+    from core.config import load_settings_into_config
+
+    load_settings_into_config()
+
+    # Auto-delete old logs based on settings
+    from core.log_manager import LogManager
+
+    log_manager = LogManager()
+    success, files_deleted = log_manager.auto_delete_old_logs()
+    if success and files_deleted > 0:
+        print(f"Auto-deleted {files_deleted} old log file(s)")
+
     testing: bool = "--test" in sys.argv
 
     if "--settings" in sys.argv:
@@ -45,8 +58,6 @@ def main() -> None:
         sys.exit(app.exec())
 
     else:
-        print("- Usage: python __init__.py --git-pull | --git-push | --settings")
-        print("- Add --test flag for test mode")
         msg = QMessageBox()
         msg.setWindowTitle("Git Helper")
         msg.setText(

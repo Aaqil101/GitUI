@@ -26,11 +26,11 @@ from core.config import (
     COLOR_ORANGE,
     FONT_FAMILY,
     FONT_SIZE_STAT,
-    PowerOption,
     THEME_BG_PRIMARY,
     THEME_BG_SECONDARY,
     THEME_TEXT_PRIMARY,
     THEME_TEXT_SECONDARY,
+    PowerOption,
     get_default_paths,
 )
 
@@ -46,7 +46,6 @@ from ui.settings_components import (
     HoverIconButton,
     create_checkbox_row,
     create_combobox_row,
-    create_list_manager,
     create_path_selector,
     create_settings_section,
     create_spinbox_row,
@@ -90,6 +89,11 @@ class SettingsDialog(QDialog):
 
         # Store original GitHub path for restart detection
         self.original_github_path = str(self.github_path_manager.get_github_path())
+
+        # Store original custom paths for restart detection
+        self.original_custom_paths = [
+            str(p) for p in self.custom_paths_manager.get_custom_paths()
+        ]
 
         self.restart_needed = False
 
@@ -388,18 +392,15 @@ class SettingsDialog(QDialog):
         self.ui_components["github_path"] = github_path_edit
         layout.addWidget(github_path_widget)
 
-        # Custom Repository Paths
-        custom_paths: list[str] = [
-            str(p) for p in self.custom_paths_manager.get_custom_paths()
-        ]
-        custom_paths_widget, custom_paths_list = create_list_manager(
-            "Custom Repository Paths (scanned in addition to GitHub folder)",
-            custom_paths,
-            self._on_add_custom_path,
-            self._on_remove_custom_path,
+        # Custom Repository Paths - Button to open manager window
+        custom_paths_count: int = len(self.custom_paths_manager.get_custom_paths())
+        custom_paths_btn = self._create_manager_button(
+            "Custom Repository Paths",
+            Icons.REPOSITORY,
+            f"{custom_paths_count} path{'s' if custom_paths_count != 1 else ''} configured",
+            self._open_custom_paths_manager,
         )
-        self.ui_components["custom_paths_list"] = custom_paths_list
-        layout.addWidget(custom_paths_widget)
+        layout.addWidget(custom_paths_btn)
 
         # Repository Exclusions Section
         layout.addWidget(
@@ -422,16 +423,15 @@ class SettingsDialog(QDialog):
         )
         layout.addWidget(username_label)
 
-        # Excluded repositories list
-        excluded_repos: list[str] = self.exclude_manager.get_excluded_repos()
-        exclude_widget, exclude_list = create_list_manager(
-            "Excluded Repositories (by repository name, not path)",
-            excluded_repos,
-            self._on_add_exclusion,
-            self._on_remove_exclusion,
+        # Excluded repositories - Button to open manager window
+        excluded_count: int = len(self.exclude_manager.get_excluded_repos())
+        exclusions_btn = self._create_manager_button(
+            "Excluded Repositories",
+            Icons.REPOSITORY,
+            f"{excluded_count} repositor{'ies' if excluded_count != 1 else 'y'} excluded",
+            self._open_exclusions_manager,
         )
-        self.ui_components["exclude_list"] = exclude_list
-        layout.addWidget(exclude_widget)
+        layout.addWidget(exclusions_btn)
 
         # Exclude confirmation timeout
         timeout_widget, timeout_spin = create_spinbox_row(
@@ -580,15 +580,29 @@ class SettingsDialog(QDialog):
 
         # Default Power Option dropdown
         power_options = [
-            (PowerOption.SHUTDOWN.value, PowerOption.get_display_name(PowerOption.SHUTDOWN)),
-            (PowerOption.RESTART.value, PowerOption.get_display_name(PowerOption.RESTART)),
-            (PowerOption.SHUTDOWN_CANCEL.value, PowerOption.get_display_name(PowerOption.SHUTDOWN_CANCEL)),
-            (PowerOption.RESTART_CANCEL.value, PowerOption.get_display_name(PowerOption.RESTART_CANCEL)),
+            (
+                PowerOption.SHUTDOWN.value,
+                PowerOption.get_display_name(PowerOption.SHUTDOWN),
+            ),
+            (
+                PowerOption.RESTART.value,
+                PowerOption.get_display_name(PowerOption.RESTART),
+            ),
+            (
+                PowerOption.SHUTDOWN_CANCEL.value,
+                PowerOption.get_display_name(PowerOption.SHUTDOWN_CANCEL),
+            ),
+            (
+                PowerOption.RESTART_CANCEL.value,
+                PowerOption.get_display_name(PowerOption.RESTART_CANCEL),
+            ),
         ]
         default_power_widget, default_power_combo = create_combobox_row(
             "Default Power Option",
             power_options,
-            self.current_settings["git_operations"].get("default_power_option", "shutdown"),
+            self.current_settings["git_operations"].get(
+                "default_power_option", "shutdown"
+            ),
             "Power option auto-selected when countdown expires (Git Push only)",
         )
         self.ui_components["default_power_option"] = default_power_combo
@@ -789,7 +803,9 @@ class SettingsDialog(QDialog):
         # Log stats display
         log_stats = self.log_manager.get_log_stats()
         size_kb = log_stats["total_size_bytes"] / 1024
-        size_display = f"{size_kb:.1f} KB" if size_kb < 1024 else f"{size_kb/1024:.2f} MB"
+        size_display = (
+            f"{size_kb:.1f} KB" if size_kb < 1024 else f"{size_kb/1024:.2f} MB"
+        )
 
         self.log_stats_label = QLabel(
             f"{Icons.INFO}  {log_stats['total_files']} log files across "
@@ -800,6 +816,40 @@ class SettingsDialog(QDialog):
             f"color: {THEME_TEXT_SECONDARY}; padding: 4px 0;"
         )
         layout.addWidget(self.log_stats_label)
+
+        # Auto-delete dropdown
+        from core.config import LogAutoDelete
+
+        auto_delete_options = [
+            (
+                LogAutoDelete.DISABLED.value,
+                LogAutoDelete.get_display_name(LogAutoDelete.DISABLED),
+            ),
+            (
+                LogAutoDelete.DAYS_7.value,
+                LogAutoDelete.get_display_name(LogAutoDelete.DAYS_7),
+            ),
+            (
+                LogAutoDelete.DAYS_30.value,
+                LogAutoDelete.get_display_name(LogAutoDelete.DAYS_30),
+            ),
+            (
+                LogAutoDelete.DAYS_60.value,
+                LogAutoDelete.get_display_name(LogAutoDelete.DAYS_60),
+            ),
+            (
+                LogAutoDelete.DAYS_90.value,
+                LogAutoDelete.get_display_name(LogAutoDelete.DAYS_90),
+            ),
+        ]
+        auto_delete_widget, auto_delete_combo = create_combobox_row(
+            "Auto-Delete Logs",
+            auto_delete_options,
+            self.current_settings["advanced"].get("log_auto_delete", "disabled"),
+            "Automatically delete logs older than selected age on startup",
+        )
+        self.ui_components["log_auto_delete"] = auto_delete_combo
+        layout.addWidget(auto_delete_widget)
 
         # Clear logs buttons row
         clear_logs_widget = QWidget()
@@ -1001,6 +1051,108 @@ class SettingsDialog(QDialog):
         layout.addWidget(save_btn)
 
         return bar
+
+    def _create_manager_button(
+        self, title: str, icon: str, subtitle: str, callback
+    ) -> QWidget:
+        """Create a button that opens a manager window.
+
+        Args:
+            title: Button title text
+            icon: Icon to display
+            subtitle: Subtitle/count text
+            callback: Function to call when clicked
+
+        Returns:
+            QWidget: Button widget
+        """
+        button = QPushButton()
+        button.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        button.setFixedHeight(60)
+        button.clicked.connect(callback)
+
+        # Button layout
+        button_layout = QHBoxLayout()
+        button_layout.setContentsMargins(16, 8, 16, 8)
+        button_layout.setSpacing(12)
+
+        # Icon
+        icon_label = QLabel(icon)
+        icon_label.setFont(QFont(FONT_FAMILY, 16))
+        icon_label.setStyleSheet(f"color: {COLOR_ORANGE};")
+        button_layout.addWidget(icon_label)
+
+        # Text container
+        text_container = QWidget()
+        text_layout = QVBoxLayout(text_container)
+        text_layout.setContentsMargins(0, 0, 0, 0)
+        text_layout.setSpacing(2)
+
+        # Title
+        title_label = QLabel(title)
+        title_label.setFont(QFont(FONT_FAMILY, FONT_SIZE_STAT, QFont.Weight.Bold))
+        title_label.setStyleSheet(f"color: {THEME_TEXT_PRIMARY};")
+        text_layout.addWidget(title_label)
+
+        # Subtitle
+        subtitle_label = QLabel(subtitle)
+        subtitle_label.setFont(QFont(FONT_FAMILY, FONT_SIZE_STAT - 1))
+        subtitle_label.setStyleSheet(f"color: {THEME_TEXT_SECONDARY};")
+        text_layout.addWidget(subtitle_label)
+
+        button_layout.addWidget(text_container, 1)
+
+        # Arrow icon
+        arrow_label = QLabel(Icons.CHEVRON_RIGHT)
+        arrow_label.setFont(QFont(FONT_FAMILY, 14))
+        arrow_label.setStyleSheet(f"color: {THEME_TEXT_SECONDARY};")
+        button_layout.addWidget(arrow_label)
+
+        # Apply layout to button using a container widget
+        container = QWidget()
+        container.setLayout(button_layout)
+        main_layout = QHBoxLayout(button)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.addWidget(container)
+
+        button.setStyleSheet(
+            f"""
+            QPushButton {{
+                background-color: rgba(255, 255, 255, 0.04);
+                border-radius: 6px;
+                border: 1px solid transparent;
+                text-align: left;
+            }}
+            QPushButton:hover {{
+                background-color: rgba(255, 255, 255, 0.06);
+                border: 1px solid rgba(255, 158, 100, 0.3);
+            }}
+            QPushButton:pressed {{
+                background-color: rgba(255, 255, 255, 0.08);
+            }}
+            QPushButton:focus {{
+                background-color: rgba(255, 255, 255, 0.06);
+                border: 1px solid rgba(255, 158, 100, 0.3);
+                outline: none;
+            }}
+            """
+        )
+
+        return button
+
+    def _open_custom_paths_manager(self) -> None:
+        """Open the custom paths manager window."""
+        from ui.custom_paths_manager_window import CustomPathsManagerWindow
+
+        dialog = CustomPathsManagerWindow(self)
+        dialog.exec()
+
+    def _open_exclusions_manager(self) -> None:
+        """Open the exclusions manager window."""
+        from ui.exclusions_manager_window import ExclusionsManagerWindow
+
+        dialog = ExclusionsManagerWindow(self)
+        dialog.exec()
 
     def _on_add_custom_path(self, list_widget) -> None:
         """Handle adding custom repository paths (supports multiple selection).
@@ -1267,6 +1419,9 @@ class SettingsDialog(QDialog):
         self.current_settings["advanced"]["operations_start_delay"] = (
             self.ui_components["operations_start_delay"].value()
         )
+        self.current_settings["advanced"]["log_auto_delete"] = self.ui_components[
+            "log_auto_delete"
+        ].currentData()
 
         # Save main settings
         success: bool = self.settings_manager.save_settings(self.current_settings)
@@ -1278,19 +1433,8 @@ class SettingsDialog(QDialog):
             )
             return
 
-        # Save custom paths
-        custom_paths_list = self.ui_components["custom_paths_list"]
-        custom_paths = [
-            custom_paths_list.item(i).text() for i in range(custom_paths_list.count())
-        ]
-        self.custom_paths_manager.save_custom_paths(custom_paths)
-
-        # Save exclusions
-        exclude_list = self.ui_components["exclude_list"]
-        excluded_repos = [
-            exclude_list.item(i).text() for i in range(exclude_list.count())
-        ]
-        self.exclude_manager.save_exclusions(excluded_repos)
+        # Custom paths and exclusions are managed by their dedicated windows
+        # No need to save them here as they're saved when user clicks Save in those windows
 
         # Check if restart needed
         self.restart_needed: bool = self._check_restart_needed()
@@ -1349,7 +1493,9 @@ class SettingsDialog(QDialog):
             return
 
         size_kb = log_stats["total_size_bytes"] / 1024
-        size_display = f"{size_kb:.1f} KB" if size_kb < 1024 else f"{size_kb/1024:.2f} MB"
+        size_display = (
+            f"{size_kb:.1f} KB" if size_kb < 1024 else f"{size_kb/1024:.2f} MB"
+        )
 
         reply = QMessageBox.question(
             self,
@@ -1394,33 +1540,40 @@ class SettingsDialog(QDialog):
 
     def _on_reset_clicked(self) -> None:
         """Handle Reset to Defaults button click."""
-        reply = QMessageBox.question(
-            self,
-            "Reset to Defaults",
-            "Are you sure you want to reset all settings to their default values?\n\n"
-            "This will:\n"
-            "- Reset all application settings\n"
-            "- Clear all custom repository paths\n"
-            "- Clear all repository exclusions\n\n"
-            "This action cannot be undone.",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No,
-        )
+        from ui.reset_confirmation_dialog import ResetConfirmationDialog
 
-        if reply == QMessageBox.StandardButton.Yes:
-            # Reset settings
+        # Show custom reset confirmation dialog
+        dialog = ResetConfirmationDialog(self)
+        result = dialog.exec()
+
+        if result == QDialog.DialogCode.Accepted:
+            # Get user's choices
+            reset_custom_paths, reset_exclusions = dialog.get_reset_options()
+
+            # Reset settings (always)
             self.settings_manager.reset_to_defaults()
 
-            # Clear custom paths
-            self.custom_paths_manager.save_custom_paths([])
+            # Conditionally clear custom paths
+            if reset_custom_paths:
+                self.custom_paths_manager.save_custom_paths([])
 
-            # Clear exclusions
-            self.exclude_manager.save_exclusions([])
+            # Conditionally clear exclusions
+            if reset_exclusions:
+                self.exclude_manager.save_exclusions([])
+
+            # Build completion message
+            reset_items = ["Application settings"]
+            if reset_custom_paths:
+                reset_items.append("Custom repository paths")
+            if reset_exclusions:
+                reset_items.append("Repository exclusions")
+
+            items_text = "\n- ".join(reset_items)
 
             QMessageBox.information(
                 self,
                 "Reset Complete",
-                "All settings have been reset to defaults.\n\nPlease restart the application.",
+                f"The following have been reset:\n- {items_text}\n\nPlease restart the application.",
             )
 
             self.accept()
@@ -1455,15 +1608,11 @@ class SettingsDialog(QDialog):
             ) != self.original_settings.get(category, {}).get(key):
                 return True
 
-        # Check custom paths
-        original_custom_paths: list[str] = [
+        # Check custom paths (compare original with current state from manager)
+        current_custom_paths = [
             str(p) for p in self.custom_paths_manager.get_custom_paths()
         ]
-        current_custom_paths = [
-            self.ui_components["custom_paths_list"].item(i).text()
-            for i in range(self.ui_components["custom_paths_list"].count())
-        ]
-        if original_custom_paths != current_custom_paths:
+        if set(self.original_custom_paths) != set(current_custom_paths):
             return True
 
         return False

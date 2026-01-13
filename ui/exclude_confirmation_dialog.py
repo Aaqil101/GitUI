@@ -1,15 +1,22 @@
 # ----- Built-In Modules-----
+from operator import iconcat
 from pathlib import Path
 
 # ----- PyQt6 Modules -----
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QFont, QIcon
-from PyQt6.QtWidgets import QDialog, QHBoxLayout, QLabel, QPushButton, QVBoxLayout
+from PyQt6.QtWidgets import (
+    QDialog,
+    QHBoxLayout,
+    QLabel,
+    QMessageBox,
+    QPushButton,
+    QVBoxLayout,
+)
 
 # ----- Config Imports -----
 from core.config import (
     COLOR_ORANGE,
-    COLOR_RED,
     FONT_FAMILY,
     FONT_SIZE_HEADER,
     FONT_SIZE_LABEL,
@@ -23,6 +30,9 @@ from core.config import (
 # ----- Settings Import -----
 from core.settings_manager import SettingsManager
 
+# ----- UI Component Imports -----
+from ui.settings_components import HoverIconButton
+
 # ----- Utils Imports -----
 from utils.center import position_center
 from utils.icons import Icons
@@ -35,22 +45,29 @@ class ExcludeConfirmationDialog(QDialog):
     Auto-skips after timeout if no user response.
     """
 
-    def __init__(self, repo_name: str, parent=None) -> None:
+    def __init__(self, repo_name: str, parent=None, testing: bool = False) -> None:
         """Initialize the exclude confirmation dialog.
 
         Args:
             repo_name: Name of the excluded repository
             parent: Parent widget
+            testing: Whether running in test mode (shorter countdown)
         """
         super().__init__(parent)
         self.repo_name: str = repo_name
-        self.user_choice = None  # 'push', 'skip', or 'cancel_all'
+        self.user_choice = None  # 'push', 'skip', or 'manual_push'
+        self.testing: bool = testing
 
         # Get timeout from settings
         settings = SettingsManager().get_settings()
         self.timeout_seconds = settings.get("git_operations", {}).get(
             "exclude_confirmation_timeout", 5
         )
+
+        # In test mode, use shorter countdown (30 seconds)
+        if self.testing:
+            self.timeout_seconds = 30
+
         self.time_left = self.timeout_seconds
 
         self._init_ui()
@@ -58,7 +75,10 @@ class ExcludeConfirmationDialog(QDialog):
 
     def _init_ui(self) -> None:
         """Initialize the user interface."""
-        self.setWindowTitle("Excluded Repository Detected")
+        title = "Excluded Repository Detected"
+        if self.testing:
+            title += " [TEST MODE]"
+        self.setWindowTitle(title)
         self.setFixedSize(500, 300)
         self.setWindowFlags(Qt.WindowType.Dialog | Qt.WindowType.WindowStaysOnTopHint)
         self.setModal(True)
@@ -128,7 +148,12 @@ class ExcludeConfirmationDialog(QDialog):
         buttons_layout.setSpacing(8)
 
         # Push Anyway button
-        push_btn = QPushButton(f"{Icons.GIT_PUSH}  Push Anyway")
+        push_btn = HoverIconButton(
+            normal_icon=Icons.GIT_PUSH_OCT,
+            hover_icon=Icons.GIT_PUSH,
+            pressed_icon=Icons.GIT_PUSH_FORCE,
+            text=f"{Icons.GIT_PUSH} Push Anyway",
+        )
         push_btn.setFont(QFont(FONT_FAMILY, FONT_SIZE_STAT))
         push_btn.setFixedHeight(36)
         push_btn.setStyleSheet(
@@ -136,17 +161,21 @@ class ExcludeConfirmationDialog(QDialog):
             QPushButton {{
                 background-color: rgba(158, 206, 106, 0.1);
                 color: #9ece6a;
-                border: 1px solid rgba(158, 206, 106, 0.3);
                 border-radius: 4px;
                 padding: 6px 16px;
                 font-weight: bold;
             }}
             QPushButton:hover {{
                 background-color: rgba(158, 206, 106, 0.2);
-                border: 1px solid #9ece6a;
+                border-bottom: 2px solid #9ece6a;
             }}
             QPushButton:pressed {{
                 background-color: rgba(158, 206, 106, 0.3);
+            }}
+            QPushButton:focus {{
+                background-color: rgba(158, 206, 106, 0.2);
+                border-bottom: 2px solid #9ece6a;
+                outline: none;
             }}
             """
         )
@@ -154,7 +183,11 @@ class ExcludeConfirmationDialog(QDialog):
         buttons_layout.addWidget(push_btn)
 
         # Skip This Repo button
-        skip_btn = QPushButton(f"{Icons.SKIP}  Skip This Repo")
+        skip_btn = HoverIconButton(
+            normal_icon=Icons.SKIP,
+            hover_icon=Icons.SKIP_FILL,
+            text=f"{Icons.SKIP} Skip This Repo",
+        )
         skip_btn.setFont(QFont(FONT_FAMILY, FONT_SIZE_STAT))
         skip_btn.setFixedHeight(36)
         skip_btn.setStyleSheet(
@@ -162,48 +195,61 @@ class ExcludeConfirmationDialog(QDialog):
             QPushButton {{
                 background-color: rgba(255, 158, 100, 0.1);
                 color: {COLOR_ORANGE};
-                border: 1px solid rgba(255, 158, 100, 0.3);
                 border-radius: 4px;
                 padding: 6px 16px;
                 font-weight: bold;
             }}
             QPushButton:hover {{
                 background-color: rgba(255, 158, 100, 0.2);
-                border: 1px solid {COLOR_ORANGE};
+                border-bottom: 2px solid {COLOR_ORANGE};
             }}
             QPushButton:pressed {{
                 background-color: rgba(255, 158, 100, 0.3);
+            }}
+            QPushButton:focus {{
+                background-color: rgba(255, 158, 100, 0.2);
+                border-bottom: 2px solid {COLOR_ORANGE};
+                outline: none;
             }}
             """
         )
         skip_btn.clicked.connect(lambda: self._on_choice("skip"))
         buttons_layout.addWidget(skip_btn)
 
-        # Cancel All button
-        cancel_btn = QPushButton(f"{Icons.CANCEL}  Cancel All")
-        cancel_btn.setFont(QFont(FONT_FAMILY, FONT_SIZE_STAT))
-        cancel_btn.setFixedHeight(36)
-        cancel_btn.setStyleSheet(
+        # Manual Push button
+        manual_btn = HoverIconButton(
+            normal_icon=Icons.MANUAL_OUTLINE,
+            hover_icon=Icons.MANUAL,
+            pressed_icon=Icons.MANUAL_PRESSED,
+            text=f"{Icons.MANUAL} Manual Push",
+        )
+        manual_btn.setFont(QFont(FONT_FAMILY, FONT_SIZE_STAT))
+        manual_btn.setFixedHeight(36)
+        manual_btn.setStyleSheet(
             f"""
             QPushButton {{
-                background-color: rgba(247, 118, 142, 0.1);
-                color: {COLOR_RED};
-                border: 1px solid rgba(247, 118, 142, 0.3);
+                background-color: rgba(122, 162, 247, 0.1);
+                color: #7aa2f7;
                 border-radius: 4px;
                 padding: 6px 16px;
                 font-weight: bold;
             }}
             QPushButton:hover {{
-                background-color: rgba(247, 118, 142, 0.2);
-                border: 1px solid {COLOR_RED};
+                background-color: rgba(122, 162, 247, 0.2);
+                border-bottom: 2px solid #7aa2f7;
             }}
             QPushButton:pressed {{
-                background-color: rgba(247, 118, 142, 0.3);
+                background-color: rgba(122, 162, 247, 0.3);
+            }}
+            QPushButton:focus {{
+                background-color: rgba(122, 162, 247, 0.2);
+                border-bottom: 2px solid #7aa2f7;
+                outline: none;
             }}
             """
         )
-        cancel_btn.clicked.connect(lambda: self._on_choice("cancel_all"))
-        buttons_layout.addWidget(cancel_btn)
+        manual_btn.clicked.connect(lambda: self._on_choice("manual_push"))
+        buttons_layout.addWidget(manual_btn)
 
         main_layout.addLayout(buttons_layout)
 
@@ -236,7 +282,7 @@ class ExcludeConfirmationDialog(QDialog):
         """Handle user choice.
 
         Args:
-            choice: User's choice ('push', 'skip', or 'cancel_all')
+            choice: User's choice ('push', 'skip', or 'manual_push')
         """
         if self.user_choice is not None:
             return  # Already made a choice
@@ -244,11 +290,27 @@ class ExcludeConfirmationDialog(QDialog):
         self.user_choice: str = choice
         self.timer.stop()
 
+        # Show test mode message box
+        if self.testing:
+            choice_actions: dict[str, str] = {
+                "push": "Would push excluded repository",
+                "skip": "Would skip excluded repository",
+                "manual_push": "Would open manual push prompt",
+            }
+            msg_box = QMessageBox(self)
+            msg_box.setWindowTitle("Test Mode")
+            msg_box.setIcon(QMessageBox.Icon.Information)
+            msg_box.setText(
+                f"{choice_actions.get(choice, 'Unknown action')}: {self.repo_name}"
+            )
+            msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
+            msg_box.exec()
+
         # Update countdown label to show selection
         choice_labels: dict[str, str] = {
             "push": "Pushing repository...",
             "skip": "Skipping repository...",
-            "cancel_all": "Cancelling all operations...",
+            "manual_push": "Opening manual push prompt...",
         }
         self.countdown_label.setText(choice_labels.get(choice, "Processing..."))
         self.countdown_label.setStyleSheet(f"color: #9ece6a; padding: 8px 0;")
@@ -260,6 +322,6 @@ class ExcludeConfirmationDialog(QDialog):
         """Get the user's choice.
 
         Returns:
-            str: 'push', 'skip', or 'cancel_all'
+            str: 'push', 'skip', or 'manual_push'
         """
         return self.user_choice if self.user_choice else "skip"

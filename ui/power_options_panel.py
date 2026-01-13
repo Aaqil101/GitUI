@@ -49,11 +49,13 @@ def create_power_options_panel(parent=None) -> tuple[QWidget, PowerOptionsSignal
         "default_power_option", "shutdown"
     )
     default_option = PowerOption.from_string(default_option_str)
+    countdown_seconds = settings.get("git_operations", {}).get("power_countdown_seconds", POWER_COUNTDOWN_SECONDS)
 
     # Create panel widget
     widget = QWidget(parent)
     widget.setStyleSheet(PANEL_STYLE)
     widget.default_power_option = default_option
+    widget.countdown_seconds = countdown_seconds
 
     layout = QVBoxLayout(widget)
     layout.setSpacing(12)
@@ -85,7 +87,7 @@ def create_power_options_panel(parent=None) -> tuple[QWidget, PowerOptionsSignal
     # Countdown label - show the default power option name
     default_option_name = PowerOption.get_display_name(default_option)
     countdown_label = QLabel(
-        f"Auto-selecting '{default_option_name}' in {POWER_COUNTDOWN_SECONDS}s..."
+        f"Auto-selecting '{default_option_name}' in {countdown_seconds}s..."
     )
     countdown_label.setFont(QFont(FONT_FAMILY, 10))
     countdown_label.setStyleSheet("color: #7aa2f7; padding: 0;")
@@ -319,14 +321,14 @@ def _create_text_button(text: str, color: str) -> QPushButton:
 
 def _start_countdown(widget: QWidget) -> None:
     """Start the countdown timer and auto-selection."""
-    widget.time_left = POWER_COUNTDOWN_SECONDS
+    widget.time_left = widget.countdown_seconds
     widget.countdown_timer = QTimer()
     widget.countdown_timer.timeout.connect(lambda: _update_countdown(widget))
     widget.countdown_timer.start(1000)
 
     # Auto-select default option after countdown
     QTimer.singleShot(
-        POWER_COUNTDOWN_SECONDS * 1000, lambda: _auto_select_default(widget)
+        widget.countdown_seconds * 1000, lambda: _auto_select_default(widget)
     )
 
 

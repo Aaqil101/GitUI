@@ -63,7 +63,7 @@ class ChevronSpinBox(QSpinBox):
 
         # Get button geometries
         button_width = 16
-        height = self.height()
+        height: int = self.height()
 
         # Position up arrow in top-right
         self._up_label.setGeometry(
@@ -181,7 +181,7 @@ def create_settings_section(title: str, icon: str = "") -> QWidget:
     # Icon (if provided)
     if icon:
         icon_label = QLabel(icon)
-        icon_label.setFont(QFont(FONT_FAMILY, 18))  # Larger icon size
+        icon_label.setFont(QFont(FONT_FAMILY, 17))  # Larger icon size
         icon_label.setStyleSheet(f"color: {COLOR_ORANGE}; padding: 0;")
         layout.addWidget(icon_label)
 
@@ -592,8 +592,8 @@ def create_list_manager(
     """
     widget = QWidget()
     layout = QVBoxLayout(widget)
-    layout.setContentsMargins(0, 2, 0, 2)  # Reduced from 4, 4
-    layout.setSpacing(4)  # Reduced from 6
+    layout.setContentsMargins(0, 2, 0, 2)
+    layout.setSpacing(4)
 
     # Title
     title_label = QLabel(title)
@@ -606,9 +606,8 @@ def create_list_manager(
     list_widget.setFont(QFont(FONT_FAMILY, FONT_SIZE_STAT))
     list_widget.setMinimumHeight(120)
     list_widget.setMaximumHeight(200)
-    list_widget.setSelectionMode(
-        QListWidget.SelectionMode.ExtendedSelection
-    )  # Enable multi-selection
+    # Enable multi-selection
+    list_widget.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
     list_widget.setStyleSheet(
         f"""
         QListWidget {{
